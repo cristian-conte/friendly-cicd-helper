@@ -34,6 +34,34 @@ def github_comment(repo, issue, comment):
 
     github.issue_comment(repo, issue, comment)
 
+# Add GitHub pull request comment command
+@cli.command()
+@click.option('--repo', default=None, help='The repository to use (format: user/repo)', required=True, type=str)
+@click.option('--pr', default=None, help='The pull request number', required=True, type=int)
+@click.option('--comment', default=None, help='The comment to post', required=False, type=str)
+def github_pr_comment(repo, pr, comment):
+    """
+    This command will post a comment to a GitHub pull request.
+    """
+    import lib.github_api as github
+    if comment is None:
+        click.echo('Reading the comment from stdin. Press Ctrl+D when done.')
+        std_in = click.get_text_stream('stdin')
+        comment = std_in.read()
+    github.pull_request_comment(repo, pr, comment)
+
+# Add GitHub latest pull request command
+@cli.command()
+@click.option('--repo', default=None, help='The repository to use (format: user/repo)', required=True, type=str)
+@click.option('--source', default=None, help='The name of the source branch of the pull request', required=True, type=str)
+def github_latest_pr(repo, source):
+    """
+    Find the most recent Pull Request for a given source branch
+    """
+    import lib.github_api as github
+    pr = github.get_latest_pull_request(repo, source)
+    return pr
+
 @cli.command()
 @click.option('--project', default=None, help='The project to use (format: user/repo)', required=True, type=str)
 @click.option('--issue', default=None, help='The issue number', required=False, type=int)
