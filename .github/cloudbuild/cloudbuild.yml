@@ -73,7 +73,7 @@ steps:
       cat pullrequest-review.md | friendly-cicd-helper github-pr-comment --repo $_GITHUB_PROJECT --pr $$(cat /workspace/github_pull_request_iid)
     secretEnv: ['GITHUB_TOKEN']
 
-  - id: Using Vertex AI to provide automated Release Notes
+  - id: Using Vertex AI to provide automated Release Notes (GITHUB)
     name: 'gcr.io/just-ratio-467615-s1/friendly-cicd-helper:latest'
     entrypoint: sh
     args:
