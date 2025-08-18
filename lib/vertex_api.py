@@ -21,13 +21,13 @@ if os.environ.get("VERTEX_GCP_PROJECT")==None:
     print("Please set VERTEX_GCP_PROJECT environment variable", file=sys.stderr)
     sys.exit(1)
 
-vertex_location = "europe-west1"
+vertex_location = "us-central1"
 if os.environ.get("VERTEX_LOCATION")!=None:
     vertex_location = os.environ.get("VERTEX_LOCATION")
 
 vertexai.init(project=os.environ.get("VERTEX_GCP_PROJECT"), location=vertex_location)
 
-model = GenerativeModel("gemini-1.5-flash-002")
+model = GenerativeModel("gemini-2.5-flash")
 
 generation_config = {
     "temperature": 0,
@@ -89,7 +89,8 @@ def code_review(diff_path):
 You are an experienced software engineer.
 You only comment on code that you found in the merge request diff.
 Provide a code review with suggestions for the most important 
-improvements based on the following Git diff:
+improvements based on the following Git diff. Ensure that suggestions are actionable,
+clear and follow best practices:
 
 ${load_diff(diff_path)}
 
