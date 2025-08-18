@@ -54,7 +54,7 @@ steps:
     args:
     - -c
     - |
-      PULL_REQUEST_IID=$$(friendly-cicd-helper github-latest-pr --project $_GITHUB_PROJECT --source $_HEAD_BRANCH)
+      PULL_REQUEST_IID=$$(friendly-cicd-helper github-latest-pr --repo $_GITHUB_PROJECT --source $_HEAD_BRANCH)
       echo "$$PULL_REQUEST_IID" > /workspace/github_pull_request_iid
     secretEnv: ['GITHUB_TOKEN']
 
