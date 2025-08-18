@@ -15,7 +15,7 @@ steps:
     args:
     - -c
     - |
-      PULL_REQUEST_IID=$$(friendly-cicd-helper github-latest-pr --project $_GITHUB_PROJECT --source $_HEAD_BRANCH)
+      PULL_REQUEST_IID=$$(friendly-cicd-helper github-latest-pr --repo $_GITHUB_PROJECT --source $_HEAD_BRANCH)
       echo "$$PULL_REQUEST_IID" > /workspace/github_pull_request_iid
     secretEnv: ['GITHUB_TOKEN']
 
@@ -65,8 +65,6 @@ steps:
   #         --region europe-west1 --annotations "commitId=${REVISION_ID},gitlab_mr=$$MERGE_REQUEST_IID" --build-artifacts /workspace/artifacts.json
 availableSecrets:
   secretManager:
-  - versionName: projects/$PROJECT_ID/secrets/friendly-cicd-helper_gitlab/versions/1
-    env: 'GITLAB_TOKEN'
   - versionName: projects/$PROJECT_ID/secrets/GITHUB_TOKEN/versions/3
     env: 'GITHUB_TOKEN'
 options:
