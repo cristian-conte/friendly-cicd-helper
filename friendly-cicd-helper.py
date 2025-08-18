@@ -22,7 +22,7 @@ def cli():
 @click.option('--repo', default=None, help='The repository to use (format: user/repo)', required=True, type=str)
 @click.option('--issue', default=None, help='The issue number', required=True, type=int)
 @click.option('--comment', default=None, help='The comment to post', required=False, type=str)
-def github_comment(repo, issue, comment):
+def github_issue_comment(repo, issue, comment):
     """
     This command will post a comment to a GitHub issue.
     """
