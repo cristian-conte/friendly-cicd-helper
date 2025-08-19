@@ -1,7 +1,7 @@
 # Friendly CI/CD Helper - Project Overview
 
 ## Purpose
-`friendly-cicd-helper` is a demo project that showcases how to use Google Cloud Vertex AI for common CI/CD tasks. It analyzes code changes (git diffs) and generates:
+`friendly-cicd-helper` is a project that uses Google Cloud Vertex AI for common CI/CD tasks. It analyzes code changes (git diffs) and generates:
 - Summaries of changes to speed up code reviews
 - PR/MR comments providing initial feedback
 - Release notes for code changes
@@ -19,5 +19,3 @@ This tool helps development teams by:
 - Speeding up the PR/MR review process
 - Providing AI-powered insights into code changes
 
-## Project Status
-This is a Google demo project (not officially supported) under Apache 2.0 license.
