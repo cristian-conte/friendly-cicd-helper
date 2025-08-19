@@ -1,0 +1,74 @@
+name: Project Automation
+
+on:
+  issues:
+    types: [opened, closed, labeled, unlabeled]
+  pull_request:
+    types: [opened, closed, labeled, unlabeled, synchronize]
+  issue_comment:
+    types: [created]
+
+jobs:
+  project-automation:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issues' || github.event_name == 'pull_request'
+    
+    steps:
+      - name: Add to Project
+        uses: actions/add-to-project@v0.6.1
+        with:
+          project-url: https://github.com/users/cristian-conte/projects/1  # Update with actual project URL
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Set Priority
+        if: contains(github.event.issue.labels.*.name, 'priority-high') || contains(github.event.pull_request.labels.*.name, 'priority-high')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const item = context.payload.issue || context.payload.pull_request;
+            console.log(`Setting high priority for ${item.title}`);
+            
+      - name: Auto-assign Epic
+        if: contains(github.event.issue.labels.*.name, 'epic')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issueNumber = context.payload.issue.number;
+            
+            // Auto-assign epic to repository owner
+            await github.rest.issues.addAssignees({
+              owner,
+              repo,
+              issue_number: issueNumber,
+              assignees: ['cristian-conte']
+            });
+            
+            console.log(`Auto-assigned epic #${issueNumber} to cristian-conte`);
+
+  progress-tracking:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'issue_comment'
+    
+    steps:
+      - name: Update Progress
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const comment = context.payload.comment.body;
+            
+            // Check for progress indicators
+            if (comment.includes('/progress') || comment.includes('/update')) {
+              const { owner, repo } = context.repo;
+              const issueNumber = context.payload.issue.number;
+              
+              // Add progress label
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: issueNumber,
+                labels: ['in-progress']
+              });
+              
+              console.log(`Added progress tracking to issue #${issueNumber}`);
+            }

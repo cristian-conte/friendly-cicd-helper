@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/cristian-conte/friendly-cicd-helper/discussions
+    about: Ask questions and discuss ideas with the community
+  - name: 📖 Documentation
+    url: https://github.com/cristian-conte/friendly-cicd-helper/blob/main/docs/USAGE.md
+    about: Check the documentation for usage examples and guides
