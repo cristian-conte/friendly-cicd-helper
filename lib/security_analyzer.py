@@ -2,14 +2,9 @@
 import json
 import logging
 import os
-import re
-import sys
 from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
-
-# Configure logging
-logger = logging.getLogger(__name__)
+from typing import Dict, List, Optional
 
 
 class Severity(Enum):
@@ -33,6 +28,7 @@ class VulnerabilityType(Enum):
     DESERIALIZATION = "unsafe_deserialization"
     WEAK_CRYPTO = "weak_cryptography"
     UNVALIDATED_REDIRECT = "unvalidated_redirect"
+    DEPENDENCY_VULNERABILITY = "dependency_vulnerability"
 
 
 @dataclass
@@ -48,7 +44,6 @@ class SecurityFinding:
     code_snippet: str
     recommendation: str
     cwe_id: Optional[str] = None
-    owasp_category: Optional[str] = None
 
 
 class SecurityAnalyzer:
@@ -58,16 +53,20 @@ class SecurityAnalyzer:
         """Initialize the security analyzer."""
         self.logger = logging.getLogger(__name__)
         
-    def analyze_diff(self, diff_content: str, file_paths: Optional[List[str]] = None) -> List[SecurityFinding]:
+    def analyze_diff(self, diff_content: str) -> List[SecurityFinding]:
         """
         Analyze a git diff for security vulnerabilities using industry-standard tools.
         
         Args:
             diff_content: Git diff content
-            file_paths: Optional list of file paths to analyze
             
         Returns:
             List of SecurityFinding objects
+            
+        Note:
+            Current implementation reconstructs partial files from diff hunks for analysis.
+            This may miss vulnerabilities in unchanged code or context-dependent issues.
+            Future enhancement: Operate on full files and filter findings to changed lines.
         """
         findings = []
         
@@ -184,7 +183,7 @@ class SecurityAnalyzer:
                         line_number=issue.get('line_number', 0),
                         file_path=self._get_original_path(issue.get('filename', ''), temp_files),
                         code_snippet=issue.get('code', ''),
-                        recommendation=f"Bandit {issue.get('test_id', '')}: {issue.get('issue_text', '')}",
+                        recommendation=f"Review the code for potential {self._map_bandit_test_to_type(issue.get('test_id', '')).value.replace('_', ' ')} and apply secure coding practices. Consult Bandit documentation for test ID {issue.get('test_id', '')} for specific mitigation steps.",
                         cwe_id=str(issue.get('issue_cwe', {}).get('id', '')) if issue.get('issue_cwe') else None
                     )
                     findings.append(finding)
@@ -212,7 +211,7 @@ class SecurityAnalyzer:
                     
                     for vuln in safety_data:
                         finding = SecurityFinding(
-                            vulnerability_type=VulnerabilityType.HARDCODED_CREDENTIALS,  # Generic for deps
+                            vulnerability_type=VulnerabilityType.DEPENDENCY_VULNERABILITY,
                             severity=self._map_safety_severity(vuln.get('vulnerability_id', '')),
                             confidence=0.8,  # High confidence for known vulnerabilities
                             title=f"Vulnerable dependency: {vuln.get('package_name', '')}",

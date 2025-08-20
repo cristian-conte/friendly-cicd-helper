@@ -156,6 +156,7 @@ def security_scan(diff, format, output):
             ],
             "summary": {
                 "total_findings": len(findings),
+                "critical_severity": len([f for f in findings if f.severity.value == "critical"]),
                 "high_severity": len([f for f in findings if f.severity.value == "high"]),
                 "medium_severity": len([f for f in findings if f.severity.value == "medium"]),
                 "low_severity": len([f for f in findings if f.severity.value == "low"])
@@ -186,11 +187,12 @@ def _format_security_report_text(findings):
     output.append(f"Total findings: {len(findings)}")
     
     # Count by severity
+    critical_count = len([f for f in findings if f.severity.value == "critical"])
     high_count = len([f for f in findings if f.severity.value == "high"])
     medium_count = len([f for f in findings if f.severity.value == "medium"])
     low_count = len([f for f in findings if f.severity.value == "low"])
     
-    output.append(f"High: {high_count} | Medium: {medium_count} | Low: {low_count}")
+    output.append(f"Critical: {critical_count} | High: {high_count} | Medium: {medium_count} | Low: {low_count}")
     output.append("")
     
     # Findings section
@@ -210,8 +212,6 @@ def _format_security_report_text(findings):
         output.append(f"   Description: {finding.description}")
         if finding.cwe_id:
             output.append(f"   CWE: {finding.cwe_id}")
-        if finding.owasp_category:
-            output.append(f"   OWASP: {finding.owasp_category}")
         output.append(f"   Code: {finding.code_snippet}")
         output.append(f"   Recommendation: {finding.recommendation}")
         output.append("")
