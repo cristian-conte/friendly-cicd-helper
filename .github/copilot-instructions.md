@@ -101,3 +101,8 @@ def command_name(param):
 - Validate input parameters to prevent injection attacks
 - Use least-privilege access for API tokens
 - Regularly rotate API tokens and secrets
+
+## Always use:
+- serena for semantic code retrieval and editing tools
+- context7 for up to date documentation on third party code
+- sequential thinking for any decision making
