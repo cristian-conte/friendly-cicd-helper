@@ -2,6 +2,7 @@
 import json
 import logging
 import os
+import sys
 from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional
@@ -171,8 +172,8 @@ class SecurityAnalyzer:
             return findings
             
         try:
-            # Use the virtual environment Python path
-            python_path = "/Users/cristian/Documents/dev/Ravl/friendly-cicd-helper-1/venv/bin/python"
+            # Use the current Python executable
+            python_path = sys.executable
             
             # Run bandit with JSON output
             cmd = [python_path, '-m', 'bandit', '-f', 'json', '--quiet'] + python_files
@@ -215,8 +216,8 @@ class SecurityAnalyzer:
         findings = []
         
         try:
-            # Use the virtual environment Python path
-            python_path = "/Users/cristian/Documents/dev/Ravl/friendly-cicd-helper-1/venv/bin/python"
+            # Use the current Python executable
+            python_path = sys.executable
             
             # Run safety check with JSON output
             cmd = [python_path, '-m', 'safety', 'check', '--json']

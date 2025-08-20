@@ -22,7 +22,8 @@ password = "admin123"  # Should trigger B105
         f.write(test_code)
     
     try:
-        cmd = ['/Users/cristian/Documents/dev/Ravl/friendly-cicd-helper-1/venv/bin/python', '-m', 'bandit', '-f', 'json', '/tmp/test_bandit.py']
+        import sys
+        cmd = [sys.executable, '-m', 'bandit', '-f', 'json', '/tmp/test_bandit.py']
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         
         print(f"Bandit exit code: {result.returncode}")
@@ -47,7 +48,8 @@ def test_safety():
     print("\nTesting safety...")
     
     try:
-        cmd = ['/Users/cristian/Documents/dev/Ravl/friendly-cicd-helper-1/venv/bin/python', '-m', 'safety', 'check', '--json']
+        import sys
+        cmd = [sys.executable, '-m', 'safety', 'check', '--json']
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
         
         print(f"Safety exit code: {result.returncode}")
