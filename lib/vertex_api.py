@@ -3,102 +3,130 @@ import sys
 import vertexai
 from vertexai.generative_models import GenerativeModel
 
-if os.environ.get("VERTEX_GCP_PROJECT")==None:
-    print("Please set VERTEX_GCP_PROJECT environment variable", file=sys.stderr)
+# --- Initialization ---
+# Ensure the GCP project is set
+if not os.environ.get("VERTEX_GCP_PROJECT"):
+    print("Please set the VERTEX_GCP_PROJECT environment variable.", file=sys.stderr)
     sys.exit(1)
 
-vertex_location = "us-central1"
-if os.environ.get("VERTEX_LOCATION")!=None:
-    vertex_location = os.environ.get("VERTEX_LOCATION")
-
+# Configure Vertex AI
+vertex_location = os.environ.get("VERTEX_LOCATION", "us-central1")
 vertexai.init(project=os.environ.get("VERTEX_GCP_PROJECT"), location=vertex_location)
 
-model = GenerativeModel("gemini-2.5-flash")
-
+# --- Model and Configuration ---
+# It's a best practice to define the model and its configuration at the top.
+# Using a specific model version like "gemini-1.5-flash-001" is recommended for stability.
+model = GenerativeModel("gemini-1.5-flash-001")
 generation_config = {
-    "temperature": 0,
+    "temperature": 0.0, # Set to 0.0 for deterministic, fact-based outputs
 }
 
-def load_diff(diff_path):
+def load_diff(diff_path: str) -> str:
     """
-    Load a Git diff from a file.
+    Loads a Git diff from a file and wraps it with clear instructions for the AI.
     """
     if not os.path.exists(diff_path):
-        print(f"{diff_path} does not exist", file=sys.stderr)
+        print(f"Error: The file '{diff_path}' does not exist.", file=sys.stderr)
         sys.exit(1)
     with open(diff_path, 'r') as file:
         data = file.read()
+    
+    # Optimized instructions for the AI on how to interpret the diff.
     return f"""
+**Context: Git Diff Analysis**
 
-A Git Diff works as follows:
-- Lines starting with a space character ' ' are unchanged and included for context only.
-- Lines starting with a plus character '+' are added.
-- Lines starting with a minus character '-' are removed.
-- Lines starting with a caret character '^' are modified.
-- Lines starting with a pound character '#' are comments.
-- Lines starting with an at character '@' are meta data.
+The following text is a Git diff in the unified format. Here is a guide to its structure:
+- Lines starting with `---` or `+++` indicate the original and new files, respectively.
+- Lines starting with `@@` are "hunk headers" that specify the line numbers for the changes.
+- Lines starting with a `+` character are lines that have been **added**.
+- Lines starting with a `-` character are lines that have been **removed**.
+- Lines starting with a space are unchanged and are included for context.
 
-When working with the Git diff, you only comment on code that has been changed, added or removed as indicated in the Git diff.
+Your analysis must be based *exclusively* on the added and removed lines within this diff.
 
 ======= START Git Diff =======
-${data}
+{data}
 ======= END Git Diff =======
+"""
+
+def code_summary(diff_path: str) -> str:
     """
-
-def code_summary(diff_path):
+    Generates a high-level technical summary from a Git diff.
     """
-    Generate a code summary based on a Git diff.
-    """
+    # Optimized Prompt for Code Summary
+    prompt = f"""
+**Persona:** You are a principal software engineer acting as a tech lead. Your goal is to provide a clear, high-level overview of a code change for your team.
 
-    response = model.generate_content(
-        f"""
-You are an experienced software engineer.
+**Task:** Analyze the following Git diff and create a concise summary. Focus on the "why" behind the changes, not just the "what". Distill the core purpose and impact of the modifications.
 
-Provide a summary of the most important changes based on the following Git diff:
+**Output Format:**
+1.  A single paragraph providing a high-level summary of the change's purpose and overall approach.
+2.  A bulleted list highlighting the 3-5 most significant individual changes.
 
-${load_diff(diff_path)}
+**Constraints:**
+- Keep the language clear and technical.
+- Do not describe changes line-by-line.
+- Base your summary *exclusively* on the provided diff.
 
-        """,
-        generation_config=generation_config
-    )
+{load_diff(diff_path)}
+"""
+    response = model.generate_content(prompt, generation_config=generation_config)
     print(response.text.strip())
     return response.text
 
 
-def code_review(diff_path):
+def code_review(diff_path: str) -> str:
     """
-    Generate a code review based on a Git diff.
+    Generates a constructive code review from a Git diff.
     """
+    # Optimized Prompt for Code Review
+    prompt = f"""
+**Persona:** You are a meticulous and collaborative senior software engineer performing a code review. Your goal is to provide constructive feedback to help your peers improve their code quality, maintainability, and reliability.
 
-    response = model.generate_content(
-        f"""
-You are an experienced software engineer.
-You only comment on code that you found in the merge request diff.
-Provide a code review with suggestions for the most important 
-improvements based on the following Git diff. Ensure that suggestions are actionable,
-clear and follow best practices:
+**Task:** Conduct a thorough code review of the following Git diff. Identify potential issues and suggest concrete improvements. Focus on logic, clarity, maintainability, potential bugs, and adherence to best practices.
 
-${load_diff(diff_path)}
+**Output Format:**
+1.  Start with one or two sentences of positive, encouraging feedback, if applicable.
+2.  Provide a list of suggestions. For each suggestion:
+    - Reference the file and approximate line number (e.g., `main.py:~42`).
+    - Clearly explain the issue and your reasoning.
+    - Provide a specific, actionable recommendation. If possible, include a corrected code snippet.
+    - Categorize the suggestion as either **[Critical]**, **[Recommended]**, or **[Minor]**.
 
-        """,
-        generation_config=generation_config
-    )
+**Constraints:**
+- All suggestions must be directly related to the code changes in the diff.
+- Do not comment on simple style issues that a linter would typically catch (e.g., spacing, line length).
+- Maintain a respectful and constructive tone.
+
+{load_diff(diff_path)}
+"""
+    response = model.generate_content(prompt, generation_config=generation_config)
     print(response.text.strip())
     return response.text
 
-def release_notes(diff_path):
-    """
-    Generate release notes based on a Git diff in unified format.
-    """
 
-    response = model.generate_content(
-        f"""
-You are an experienced tech writer.
-Write short release notes in markdown bullet point format for the most important changes based on the following Git diff:
+def release_notes(diff_path: str) -> str:
+    """
+    Generates user-focused release notes from a Git diff.
+    """
+    # Optimized Prompt for Release Notes
+    prompt = f"""
+**Persona:** You are a professional technical writer preparing release notes for a software product. Your audience includes both technical and non-technical stakeholders.
 
-${load_diff(diff_path)}
-        """,
-        generation_config=generation_config
-    )
-    print(response.text.strip())
-    return response.text
+**Task:** Analyze the following Git diff and generate clear, concise release notes. Focus on the user-facing or developer-facing impact of the changes, not the low-level implementation details.
+
+**Output Format:**
+- Use Markdown format.
+- Group the changes into the following categories (only include categories with relevant changes):
+  - ### ✨ New Features
+  - ### 🛠️ Improvements
+  - ### 🐛 Bug Fixes
+- Each item should be a single, benefit-oriented sentence.
+
+**Example:**
+```markdown
+### ✨ New Features
+* Users can now export their data to a CSV file from the settings page.
+
+### 🐛 Bug Fixes
+* Fixed an issue where the application would crash when uploading an empty file.
