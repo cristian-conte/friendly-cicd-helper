@@ -60,7 +60,7 @@ def get_latest_pull_request(repo_path, source_branch):
     auth = Auth.Token(token)
     client = Github(auth=auth)
     repo = client.get_repo(repo_path)
-    pulls = repo.get_pulls(state='open', sort='created', base=None)
+    pulls = repo.get_pulls(state='open', sort='created')
     for pr in pulls:
         if pr.head.ref == source_branch:
             print(f'Latest pull request for {source_branch} is {pr.number}', file=sys.stderr)
