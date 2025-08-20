@@ -102,7 +102,10 @@ def command_name(param):
 - Use least-privilege access for API tokens
 - Regularly rotate API tokens and secrets
 
+## IMPORTANT, DO NOT FORGET
 ## Always use:
-- serena for semantic code retrieval and editing tools
-- context7 for up to date documentation on third party code
-- sequential thinking for any decision making
+- serena tool for semantic code retrieval and editing tools
+- context7 tool for up to date documentation on third party code
+- sequential tool thinking for any decision making
+- Always commit after each complete task. Use detailed commit messages. 
+- Use new branches for new features or bug fixes.
