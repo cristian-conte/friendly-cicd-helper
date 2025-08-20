@@ -111,3 +111,9 @@ google-cloud-sdk/
 *.tar.gz
 .idea/
 credentials.json
+
+# macOS specific
+.DS_Store
+
+# Serena cache files
+.serena/cache/
