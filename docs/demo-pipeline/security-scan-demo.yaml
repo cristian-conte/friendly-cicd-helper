@@ -1,0 +1,64 @@
+# Copyright 2023 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Demo pipeline showcasing the security scan functionality
+# This demonstrates how to use the friendly-cicd-helper security-scan command
+# in a Cloud Build pipeline to analyze code changes for security vulnerabilities
+
+steps:
+  - id: Generate Git Diff
+    name: gcr.io/cloud-builders/git
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        git fetch origin
+        git diff origin/main --output /workspace/diff.txt
+        echo "Generated diff for security analysis:"
+        cat /workspace/diff.txt
+
+  - id: Security Scan - Text Output
+    name: '$_IMAGE_PATH'
+    entrypoint: sh
+    args:
+    - -c
+    - |
+      echo "Running security scan with text format..."
+      friendly-cicd-helper security-scan --diff /workspace/diff.txt --format text
+
+  - id: Security Scan - JSON Output
+    name: '$_IMAGE_PATH'
+    entrypoint: sh
+    args:
+    - -c
+    - |
+      echo "Running security scan with JSON format..."
+      friendly-cicd-helper security-scan --diff /workspace/diff.txt --format json --output /workspace/security-report.json
+      echo "Security report saved to security-report.json"
+      cat /workspace/security-report.json
+
+  - id: Security Scan Help
+    name: '$_IMAGE_PATH'
+    entrypoint: sh
+    args:
+    - -c
+    - |
+      echo "Security scan command help:"
+      friendly-cicd-helper security-scan --help
+
+substitutions:
+  _IMAGE_PATH: 'gcr.io/just-ratio-467615-s1/friendly-cicd-helper:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY

@@ -108,15 +108,25 @@ dmypy.json
 
 # Google Cloud
 google-cloud-sdk/
-*.tar.gz
+google-cloud-cli-*.tar.gz
 .idea/
 credentials.json
 
 # macOS specific
 .DS_Store
 *.DS_Store
-# Serena cache files
+
+# Serena cache files and metadata
+# .serena/
 .serena/cache/
-.DS_Store
-.github/.DS_Store
-.serena/.DS_Store
+# .serena/memories/
+# .serena/project.yml 
+
+# Security tool output files
+.bandit
+bandit-report.json
+security-report.json
+
+# Temporary test files
+test_*.patch
+test_*.txt

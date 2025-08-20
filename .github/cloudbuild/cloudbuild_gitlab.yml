@@ -48,6 +48,26 @@ steps:
       cat mergerequest-release-notes.md | friendly-cicd-helper gitlab-comment --project $_GITLAB_PROJECT --mergerequest $$(cat /workspace/gitlab_merge_request_iid)
     secretEnv: ['GITLAB_TOKEN']
 
+  - id: Security Scan (GITLAB)
+    name: 'gcr.io/just-ratio-467615-s1/friendly-cicd-helper:latest'
+    entrypoint: sh
+    args:
+    - -c
+    - |
+      echo "## 🔒 Automated Security Scan Results" | tee security-scan.md
+      echo "_Security analysis performed using industry-standard tools: Bandit, Safety, and Semgrep_" | tee -a security-scan.md
+      echo "" | tee -a security-scan.md
+      
+      # Run security scan with text format for readability
+      friendly-cicd-helper security-scan --diff /workspace/diff.txt --format text | tee -a security-scan.md
+      
+      # Also generate JSON output for potential further processing
+      friendly-cicd-helper security-scan --diff /workspace/diff.txt --format json --output /workspace/security-report.json
+      
+      # Post the markdown results as a comment
+      cat security-scan.md | friendly-cicd-helper gitlab-comment --project $_GITLAB_PROJECT --mergerequest $$(cat /workspace/gitlab_merge_request_iid)
+    secretEnv: ['GITLAB_TOKEN']
+
   # - id: Build the image with Skaffold
   #   name: gcr.io/k8s-skaffold/skaffold
   #   entrypoint: /bin/bash

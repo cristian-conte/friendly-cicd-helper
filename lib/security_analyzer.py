@@ -62,11 +62,6 @@ class SecurityAnalyzer:
             
         Returns:
             List of SecurityFinding objects
-            
-        Note:
-            Current implementation reconstructs partial files from diff hunks for analysis.
-            This may miss vulnerabilities in unchanged code or context-dependent issues.
-            Future enhancement: Operate on full files and filter findings to changed lines.
         """
         findings = []
         
@@ -74,14 +69,22 @@ class SecurityAnalyzer:
             # Extract file content from diff for analysis
             temp_files = self._extract_files_from_diff(diff_content)
             
+            if not temp_files:
+                self.logger.info("No files to analyze in diff")
+                return findings
+            
             # Run bandit for Python security issues
+            self.logger.info("Running bandit security scan...")
             findings.extend(self._run_bandit(temp_files))
             
-            # Run safety for dependency vulnerabilities
-            findings.extend(self._run_safety())
+            # Run safety for dependency vulnerabilities (only if requirements files are present)
+            if any(f.endswith(('requirements.txt', 'requirements.in', 'pyproject.toml', 'Pipfile')) for f in temp_files.keys()):
+                self.logger.info("Running safety dependency scan...")
+                findings.extend(self._run_safety())
             
-            # TODO: Re-enable semgrep once timeout issues are resolved
-            # findings.extend(self._run_semgrep(temp_files))
+            # Run semgrep for comprehensive security analysis
+            self.logger.info("Running semgrep security scan...")
+            findings.extend(self._run_semgrep(temp_files))
             
             # Clean up temporary files
             self._cleanup_temp_files(temp_files)
@@ -157,37 +160,47 @@ class SecurityAnalyzer:
         """Run bandit security analysis on Python files."""
         import subprocess
         import json
+        import os
         
         findings = []
         python_files = [temp_path for orig_path, temp_path in temp_files.items() 
                        if orig_path.endswith('.py')]
         
         if not python_files:
+            self.logger.info("No Python files found for bandit analysis")
             return findings
             
         try:
+            # Use the virtual environment Python path
+            python_path = "/Users/cristian/Documents/dev/Ravl/friendly-cicd-helper-1/venv/bin/python"
+            
             # Run bandit with JSON output
-            cmd = ['bandit', '-f', 'json'] + python_files
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            cmd = [python_path, '-m', 'bandit', '-f', 'json', '--quiet'] + python_files
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             
             if result.stdout:
-                bandit_data = json.loads(result.stdout)
-                
-                for issue in bandit_data.get('results', []):
-                    finding = SecurityFinding(
-                        vulnerability_type=self._map_bandit_test_to_type(issue.get('test_id', '')),
-                        severity=self._map_bandit_severity(issue.get('issue_severity', 'LOW')),
-                        confidence=self._map_bandit_confidence(issue.get('issue_confidence', 'LOW')),
-                        title=f"Bandit {issue.get('test_id', '')}: {issue.get('test_name', '')}",
-                        description=issue.get('issue_text', ''),
-                        line_number=issue.get('line_number', 0),
-                        file_path=self._get_original_path(issue.get('filename', ''), temp_files),
-                        code_snippet=issue.get('code', ''),
-                        recommendation=f"Review the code for potential {self._map_bandit_test_to_type(issue.get('test_id', '')).value.replace('_', ' ')} and apply secure coding practices. Consult Bandit documentation for test ID {issue.get('test_id', '')} for specific mitigation steps.",
-                        cwe_id=str(issue.get('issue_cwe', {}).get('id', '')) if issue.get('issue_cwe') else None
-                    )
-                    findings.append(finding)
+                try:
+                    bandit_data = json.loads(result.stdout)
                     
+                    for issue in bandit_data.get('results', []):
+                        finding = SecurityFinding(
+                            vulnerability_type=self._map_bandit_test_to_type(issue.get('test_id', '')),
+                            severity=self._map_bandit_severity(issue.get('issue_severity', 'LOW')),
+                            confidence=self._map_bandit_confidence(issue.get('issue_confidence', 'LOW')),
+                            title=f"Bandit {issue.get('test_id', '')}: {issue.get('test_name', '')}",
+                            description=issue.get('issue_text', ''),
+                            line_number=issue.get('line_number', 0),
+                            file_path=self._get_original_path(issue.get('filename', ''), temp_files),
+                            code_snippet=issue.get('code', ''),
+                            recommendation=f"Review the code for potential {self._map_bandit_test_to_type(issue.get('test_id', '')).value.replace('_', ' ')} and apply secure coding practices. Consult Bandit documentation for test ID {issue.get('test_id', '')} for specific mitigation steps.",
+                            cwe_id=str(issue.get('issue_cwe', {}).get('id', '')) if issue.get('issue_cwe') else None
+                        )
+                        findings.append(finding)
+                except json.JSONDecodeError as e:
+                    self.logger.error(f"Failed to parse bandit JSON output: {e}")
+                    
+        except subprocess.TimeoutExpired:
+            self.logger.error("Bandit analysis timed out")
         except Exception as e:
             self.logger.error(f"Error running bandit: {e}")
             
@@ -197,13 +210,17 @@ class SecurityAnalyzer:
         """Run safety check for dependency vulnerabilities."""
         import subprocess
         import json
+        import os
         
         findings = []
         
         try:
+            # Use the virtual environment Python path
+            python_path = "/Users/cristian/Documents/dev/Ravl/friendly-cicd-helper-1/venv/bin/python"
+            
             # Run safety check with JSON output
-            cmd = ['safety', 'check', '--json']
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            cmd = [python_path, '-m', 'safety', 'check', '--json']
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             
             if result.stdout:
                 try:
@@ -213,21 +230,91 @@ class SecurityAnalyzer:
                         finding = SecurityFinding(
                             vulnerability_type=VulnerabilityType.DEPENDENCY_VULNERABILITY,
                             severity=self._map_safety_severity(vuln.get('vulnerability_id', '')),
-                            confidence=0.8,  # High confidence for known vulnerabilities
+                            confidence=0.9,  # High confidence for known vulnerabilities
                             title=f"Vulnerable dependency: {vuln.get('package_name', '')}",
-                            description=f"Vulnerable dependency: {vuln.get('package_name', '')} {vuln.get('installed_version', '')}",
+                            description=f"Vulnerable dependency found: {vuln.get('package_name', '')} {vuln.get('installed_version', '')}. {vuln.get('advisory', '')}",
                             line_number=0,
                             file_path="requirements.txt",
                             code_snippet=f"{vuln.get('package_name', '')}=={vuln.get('installed_version', '')}",
-                            recommendation=f"Update {vuln.get('package_name', '')} to a secure version"
+                            recommendation=f"Update {vuln.get('package_name', '')} to version {vuln.get('spec', 'latest')} or higher to fix this vulnerability."
                         )
                         findings.append(finding)
                 except json.JSONDecodeError:
                     # Safety might return non-JSON output when no vulnerabilities found
-                    pass
+                    self.logger.info("No vulnerabilities found by safety (or non-JSON output)")
                     
+        except subprocess.TimeoutExpired:
+            self.logger.error("Safety analysis timed out")
         except Exception as e:
             self.logger.error(f"Error running safety: {e}")
+            
+        return findings
+    
+    def _run_semgrep(self, temp_files: Dict[str, str]) -> List[SecurityFinding]:
+        """Run semgrep security analysis on files."""
+        import subprocess
+        import json
+        import tempfile
+        import os
+        
+        findings = []
+        
+        if not temp_files:
+            return findings
+            
+        try:
+            # Create a temporary directory structure for semgrep
+            with tempfile.TemporaryDirectory() as temp_dir:
+                # Copy files to temp directory preserving relative paths
+                for orig_path, temp_path in temp_files.items():
+                    target_path = os.path.join(temp_dir, orig_path)
+                    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                    
+                    # Copy the temp file content to the new location
+                    with open(temp_path, 'r', encoding='utf-8', errors='ignore') as src:
+                        with open(target_path, 'w', encoding='utf-8') as dst:
+                            dst.write(src.read())
+                
+                # Run semgrep with security rules
+                cmd = [
+                    'semgrep', 
+                    '--config=auto',  # Use automatic security rules
+                    '--json',
+                    '--quiet',
+                    '--no-git-ignore',
+                    temp_dir
+                ]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                
+                if result.stdout:
+                    try:
+                        semgrep_data = json.loads(result.stdout)
+                        
+                        for finding_data in semgrep_data.get('results', []):
+                            # Extract relative path from temp directory
+                            full_path = finding_data.get('path', '')
+                            relative_path = os.path.relpath(full_path, temp_dir) if temp_dir in full_path else full_path
+                            
+                            finding = SecurityFinding(
+                                vulnerability_type=self._map_semgrep_rule_to_type(finding_data.get('check_id', '')),
+                                severity=self._map_semgrep_severity(finding_data.get('extra', {}).get('severity', 'INFO')),
+                                confidence=0.8,  # High confidence for semgrep rules
+                                title=f"Semgrep: {finding_data.get('extra', {}).get('message', 'Security issue detected')}",
+                                description=finding_data.get('extra', {}).get('message', 'Security issue detected by semgrep'),
+                                line_number=finding_data.get('start', {}).get('line', 0),
+                                file_path=relative_path,
+                                code_snippet=finding_data.get('extra', {}).get('lines', ''),
+                                recommendation=f"Review the flagged code and apply secure coding practices. Check semgrep rule {finding_data.get('check_id', '')} for specific guidance."
+                            )
+                            findings.append(finding)
+                    except json.JSONDecodeError as e:
+                        self.logger.error(f"Failed to parse semgrep JSON output: {e}")
+                        
+        except subprocess.TimeoutExpired:
+            self.logger.error("Semgrep analysis timed out")
+        except Exception as e:
+            self.logger.error(f"Error running semgrep: {e}")
             
         return findings
     
@@ -286,7 +373,7 @@ class SecurityAnalyzer:
             'B323': VulnerabilityType.UNVALIDATED_REDIRECT,
             'B324': VulnerabilityType.WEAK_CRYPTO,
             'B325': VulnerabilityType.PATH_TRAVERSAL,
-            'B404': VulnerabilityType.SECRET_EXPOSURE,  # subprocess import warning
+            'B404': VulnerabilityType.SECRET_EXPOSURE,
             'B501': VulnerabilityType.UNVALIDATED_REDIRECT,
             'B502': VulnerabilityType.WEAK_CRYPTO,
             'B503': VulnerabilityType.WEAK_CRYPTO,
@@ -333,3 +420,62 @@ class SecurityAnalyzer:
         """Map safety vulnerability to severity (simplified approach)."""
         # This is a simplified approach - in reality you'd want to parse the CVE score
         return Severity.HIGH  # Default to high for known vulnerabilities
+    
+    def _map_semgrep_rule_to_type(self, check_id: str) -> VulnerabilityType:
+        """Map semgrep rule ID to vulnerability type."""
+        check_id_lower = check_id.lower()
+        
+        if 'injection' in check_id_lower or 'exec' in check_id_lower:
+            return VulnerabilityType.COMMAND_INJECTION
+        elif 'sql' in check_id_lower:
+            return VulnerabilityType.SQL_INJECTION
+        elif 'xss' in check_id_lower or 'cross-site' in check_id_lower:
+            return VulnerabilityType.XSS
+        elif 'secret' in check_id_lower or 'password' in check_id_lower or 'key' in check_id_lower:
+            return VulnerabilityType.SECRET_EXPOSURE
+        elif 'crypto' in check_id_lower or 'hash' in check_id_lower or 'cipher' in check_id_lower:
+            return VulnerabilityType.WEAK_CRYPTO
+        elif 'path' in check_id_lower or 'traversal' in check_id_lower:
+            return VulnerabilityType.PATH_TRAVERSAL
+        elif 'redirect' in check_id_lower:
+            return VulnerabilityType.UNVALIDATED_REDIRECT
+        elif 'deser' in check_id_lower or 'pickle' in check_id_lower:
+            return VulnerabilityType.DESERIALIZATION
+        else:
+            return VulnerabilityType.SECRET_EXPOSURE
+    
+    def _map_semgrep_severity(self, severity: str) -> Severity:
+        """Map semgrep severity to our severity enum."""
+        mapping = {
+            'ERROR': Severity.HIGH,
+            'WARNING': Severity.MEDIUM,
+            'INFO': Severity.LOW
+        }
+        return mapping.get(severity.upper(), Severity.INFO)
+
+    def generate_report(self, findings: List[SecurityFinding]) -> dict:
+        """Generate a structured security findings report."""
+        summary = {
+            "total_findings": len(findings),
+            "severities": {},
+        }
+        for sev in Severity:
+            summary[sev.value] = len([f for f in findings if f.severity == sev])
+        summary["severities"] = {sev.value: summary[sev.value] for sev in Severity}
+        report = {
+            "summary": summary,
+            "findings": [f.__dict__ for f in findings],
+            "recommendations": list(set(f.recommendation for f in findings)),
+        }
+        return report
+
+def scan_diff_file(diff_file_path: str) -> dict:
+    """Scan a diff file for security issues and return a report."""
+    import os
+    if not os.path.exists(diff_file_path):
+        return {"error": "Diff file not found"}
+    with open(diff_file_path, 'r') as f:
+        diff_content = f.read()
+    analyzer = SecurityAnalyzer()
+    findings = analyzer.analyze_diff(diff_content)
+    return analyzer.generate_report(findings)
