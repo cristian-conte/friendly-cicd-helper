@@ -15,35 +15,36 @@
 import os
 import sys
 import vertexai
-from vertexai.generative_models import GenerativeModel
+from vertexai.generative_models import GenerativeModel, GenerationConfig
 
-if os.environ.get("VERTEX_GCP_PROJECT")==None:
-    print("Please set VERTEX_GCP_PROJECT environment variable", file=sys.stderr)
+# --- Vertex AI Initialization ---
+try:
+    GCP_PROJECT = os.environ["VERTEX_GCP_PROJECT"]
+except KeyError:
+    print("Please set the VERTEX_GCP_PROJECT environment variable", file=sys.stderr)
     sys.exit(1)
 
-vertex_location = "us-central1"
-if os.environ.get("VERTEX_LOCATION")!=None:
-    vertex_location = os.environ.get("VERTEX_LOCATION")
+VERTEX_LOCATION = os.environ.get("VERTEX_LOCATION", "us-central1")
 
-vertexai.init(project=os.environ.get("VERTEX_GCP_PROJECT"), location=vertex_location)
+vertexai.init(project=GCP_PROJECT, location=VERTEX_LOCATION)
 
-model = GenerativeModel("gemini-2.5-flash")
+# --- Model Configuration ---
+MODEL = GenerativeModel("gemini-1.5-flash")
+GENERATION_CONFIG = GenerationConfig(temperature=0.2)
 
-generation_config = {
-    "temperature": 0,
-}
 
-def load_diff(diff_path):
+def load_diff(diff_path: str) -> str:
     """
     Load a Git diff from a file.
     """
-    if not os.path.exists(diff_path):
-        print(f"{diff_path} does not exist", file=sys.stderr)
+    try:
+        with open(diff_path, "r") as file:
+            data = file.read()
+    except FileNotFoundError:
+        print(f"Error: Diff file not found at {diff_path}", file=sys.stderr)
         sys.exit(1)
-    with open(diff_path, 'r') as file:
-        data = file.read()
-    return f"""
 
+    return f"""
 A Git Diff works as follows:
 - Lines starting with a space character ' ' are unchanged and included for context only.
 - Lines starting with a plus character '+' are added.
@@ -55,64 +56,67 @@ A Git Diff works as follows:
 When working with the Git diff, you only comment on code that has been changed, added or removed as indicated in the Git diff.
 
 ======= START Git Diff =======
-${data}
+{data}
 ======= END Git Diff =======
     """
 
-def code_summary(diff_path):
+
+def _generate_content(prompt: str) -> str:
+    """Generic function to generate content from the model."""
+    try:
+        response = MODEL.generate_content(prompt, generation_config=GENERATION_CONFIG)
+        return response.text.strip()
+    except Exception as e:
+        print(f"An error occurred during content generation: {e}", file=sys.stderr)
+        return ""
+
+
+def code_summary(diff_path: str) -> str:
     """
     Generate a code summary based on a Git diff.
     """
-
-    response = model.generate_content(
-        f"""
+    diff_content = load_diff(diff_path)
+    prompt = f"""
 You are an experienced software engineer.
+Provide a concise, high-level summary of the most important changes based on the following Git diff:
 
-Provide a summary of the most important changes based on the following Git diff:
-
-${load_diff(diff_path)}
-
-        """,
-        generation_config=generation_config
-    )
-    print(response.text.strip())
-    return response.text
+{diff_content}
+    """
+    summary = _generate_content(prompt)
+    print(summary)
+    return summary
 
 
-def code_review(diff_path):
+def code_review(diff_path: str) -> str:
     """
     Generate a code review based on a Git diff.
     """
-
-    response = model.generate_content(
-        f"""
+    diff_content = load_diff(diff_path)
+    prompt = f"""
 You are an experienced software engineer.
-You only comment on code that you found in the merge request diff.
-Provide a code review with suggestions for the most important 
-improvements based on the following Git diff. Ensure that suggestions are actionable,
-clear and follow best practices:
+Provide a code review with actionable suggestions for the most important
+improvements based on the following Git diff. Focus on clarity, best practices,
+and potential issues. Only comment on code that has been changed, added, or removed.
 
-${load_diff(diff_path)}
+{diff_content}
+    """
+    review = _generate_content(prompt)
+    print(review)
+    return review
 
-        """,
-        generation_config=generation_config
-    )
-    print(response.text.strip())
-    return response.text
 
-def release_notes(diff_path):
+def release_notes(diff_path: str) -> str:
     """
     Generate release notes based on a Git diff in unified format.
     """
+    diff_content = load_diff(diff_path)
+    prompt = f"""
+You are an experienced technical writer.
+Write short, clear release notes in markdown bullet-point format for the
+most important user-facing changes based on the following Git diff:
 
-    response = model.generate_content(
-        f"""
-You are an experienced tech writer.
-Write short release notes in markdown bullet point format for the most important changes based on the following Git diff:
-
-${load_diff(diff_path)}
-        """,
-        generation_config=generation_config
-    )
-    print(response.text.strip())
-    return response.text
+{diff_content}
+    """
+    notes = _generate_content(prompt)
+    print(notes)
+    return notes

@@ -13,58 +13,59 @@
 # limitations under the License.
 
 from github import Github, Auth
+from os import getenv
+from sys import exit
 
-import os
 
-def issue_comment(repo_path, issue_number, comment):
+def issue_comment(repo_path: str, issue_number: int, comment: str):
     """
     Post a comment to an existing GitHub issue in the specified repo.
     """
 
-    token = os.getenv('GITHUB_TOKEN')
+    token = getenv("GITHUB_TOKEN")
     if token is None:
-        print('Please set the GITHUB_TOKEN environment variable.')
-        return
+        print("Please set the GITHUB_TOKEN environment variable.")
+        exit(1)
 
     auth = Auth.Token(token)
     client = Github(auth=auth)
     repo = client.get_repo(repo_path)
     issue = repo.get_issue(number=issue_number)
     issue_comment = issue.create_comment(comment)
-    print(f'Posted a comment to GitHub issue. Link: {issue_comment.html_url}')
+    print(f"Posted a comment to GitHub issue. Link: {issue_comment.html_url}")
 
-def pull_request_comment(repo_path, pr_number, comment):
+
+def pull_request_comment(repo_path: str, pr_number: int, comment: str):
     """
     Post a comment to a GitHub pull request in the specified repo.
     """
-    token = os.getenv('GITHUB_TOKEN')
+    token = getenv("GITHUB_TOKEN")
     if token is None:
-        print('Please set the GITHUB_TOKEN environment variable.')
-        return
+        print("Please set the GITHUB_TOKEN environment variable.")
+        exit(1)
     auth = Auth.Token(token)
     client = Github(auth=auth)
     repo = client.get_repo(repo_path)
     pr = repo.get_pull(number=pr_number)
     pr_comment = pr.create_issue_comment(comment)
-    print(f'Posted a comment to GitHub PR. Link: {pr_comment.html_url}')
+    print(f"Posted a comment to GitHub PR. Link: {pr_comment.html_url}")
 
-def get_latest_pull_request(repo_path, source_branch):
+
+def get_latest_pull_request(repo_path: str, source_branch: str):
     """
     Find the latest open pull request for a given source branch.
     """
-    import sys
-    token = os.getenv('GITHUB_TOKEN')
+    token = getenv("GITHUB_TOKEN")
     if token is None:
-        print('Please set the GITHUB_TOKEN environment variable.')
-        return None
+        print("Please set the GITHUB_TOKEN environment variable.")
+        exit(1)
     auth = Auth.Token(token)
     client = Github(auth=auth)
     repo = client.get_repo(repo_path)
-    pulls = repo.get_pulls(state='open', sort='created')
+    pulls = repo.get_pulls(state="open", sort="created")
     for pr in pulls:
         if pr.head.ref == source_branch:
-            print(f'Latest pull request for {source_branch} is {pr.number}', file=sys.stderr)
-            print(pr.number)
+            print(f"Latest pull request for {source_branch} is {pr.number}")
             return pr.number
-    print(f'No pull requests found for {source_branch}', file=sys.stderr)
+    print(f"No pull requests found for {source_branch}")
     return None

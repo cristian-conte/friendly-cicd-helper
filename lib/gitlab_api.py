@@ -13,40 +13,43 @@
 # limitations under the License.
 
 import gitlab
-import os
-import sys
+from os import environ
 
-def issue_comment(project, issue, comment):
+
+def issue_comment(project_id: str, issue_id: int, comment: str):
     """
     Post a comment to a Gitlab issue
     """
-    gl = gitlab.Gitlab(private_token=os.environ['GITLAB_TOKEN'])
-    project = gl.projects.get(project)
-    issue = project.issues.get(issue)
-    note = issue.notes.create({'body': comment})
-    print(f'Posted a comment to Gitlab issue. Link: {issue.web_url}#note_{note.id}')
+    gl = gitlab.Gitlab(private_token=environ["GITLAB_TOKEN"])
+    project = gl.projects.get(project_id)
+    issue = project.issues.get(issue_id)
+    note = issue.notes.create({"body": comment})
+    print(f"Posted a comment to Gitlab issue. Link: {issue.web_url}#note_{note.id}")
 
-def merge_request_comment(project, mr, comment):
+
+def merge_request_comment(project_id: str, mr_id: int, comment: str):
     """
     Post a comment to a Gitlab merge request
     """
-    gl = gitlab.Gitlab(private_token=os.environ['GITLAB_TOKEN'])
-    project = gl.projects.get(project)
-    merge_request = project.mergerequests.get(mr)
-    note = merge_request.notes.create({'body': comment})
-    print(f'Posted a comment to Gitlab MR. Link: {merge_request.web_url}#note_{note.id}')
+    gl = gitlab.Gitlab(private_token=environ["GITLAB_TOKEN"])
+    project = gl.projects.get(project_id)
+    merge_request = project.mergerequests.get(mr_id)
+    note = merge_request.notes.create({"body": comment})
+    print(
+        f"Posted a comment to Gitlab MR. Link: {merge_request.web_url}#note_{note.id}"
+    )
 
-def get_latest_merge_request(project, source_branch):
+
+def get_latest_merge_request(project_id: str, source_branch: str):
     """
     Find the latest merge request id for a given source branch
     """
-    gl = gitlab.Gitlab(private_token=os.environ['GITLAB_TOKEN'])
-    project = gl.projects.get(project)
+    gl = gitlab.Gitlab(private_token=environ["GITLAB_TOKEN"])
+    project = gl.projects.get(project_id)
     merge_requests = project.mergerequests.list(source_branch=source_branch)
     if merge_requests:
-        print(f'Latest merge request for {source_branch} is {merge_requests[0].iid}', file=sys.stderr)
-        print(merge_requests[0].iid)
+        print(f"Latest merge request for {source_branch} is {merge_requests[0].iid}")
         return merge_requests[0].iid
-    else:
-        print(f'No merge requests found for {source_branch}', file=sys.stderr)
-        return None
+
+    print(f"No merge requests found for {source_branch}")
+    return None

@@ -13,116 +13,191 @@
 # limitations under the License.
 
 import click
+import sys
+from typing import Optional
 
+# --- Local Imports ---
+import lib.github_api as github
+import lib.gitlab_api as gitlab
+import lib.vertex_api as vertex
+
+
+# --- Helper Functions ---
+def _read_comment_from_stdin() -> str:
+    """Reads comment text from standard input."""
+    click.echo("Reading comment from stdin (Ctrl+D to end)...")
+    return sys.stdin.read().strip()
+
+
+# --- CLI Group ---
 @click.group()
 def cli():
+    """A friendly CLI tool for CI/CD automation with AI assistance."""
     pass
 
-@cli.command()
-@click.option('--repo', default=None, help='The repository to use (format: user/repo)', required=True, type=str)
-@click.option('--issue', default=None, help='The issue number', required=True, type=int)
-@click.option('--comment', default=None, help='The comment to post', required=False, type=str)
-def github_issue_comment(repo, issue, comment):
+
+# --- GitHub Commands ---
+@cli.group(name="github")
+def github_group():
+    """Commands for interacting with GitHub."""
+    pass
+
+
+@github_group.command("issue-comment")
+@click.option(
+    "--repo", required=True, help="The repository to use (format: owner/repo)"
+)
+@click.option("--issue", required=True, type=int, help="The issue number")
+@click.option(
+    "--comment", help="The comment to post (reads from stdin if not provided)"
+)
+def github_issue_comment(repo: str, issue: int, comment: Optional[str]):
     """
     This command will post a comment to a GitHub issue.
     """
-    import lib.github_api as github
     if comment is None:
-        click.echo('Reading the comment from stdin. Press Ctrl+D when done.')
-        std_in = click.get_text_stream('stdin')
-        comment = std_in.read()
-
+        comment = _read_comment_from_stdin()
     github.issue_comment(repo, issue, comment)
 
-# Add GitHub pull request comment command
-@cli.command()
-@click.option('--repo', default=None, help='The repository to use (format: user/repo)', required=True, type=str)
-@click.option('--pr', default=None, help='The pull request number', required=True, type=int)
-@click.option('--comment', default=None, help='The comment to post', required=False, type=str)
-def github_pr_comment(repo, pr, comment):
+
+@github_group.command("pr-comment")
+@click.option(
+    "--repo", required=True, help="The repository to use (format: owner/repo)"
+)
+@click.option("--pr", required=True, type=int, help="The pull request number")
+@click.option(
+    "--comment", help="The comment to post (reads from stdin if not provided)"
+)
+def github_pr_comment(repo: str, pr: int, comment: Optional[str]):
     """
     This command will post a comment to a GitHub pull request.
     """
-    import lib.github_api as github
     if comment is None:
-        click.echo('Reading the comment from stdin. Press Ctrl+D when done.')
-        std_in = click.get_text_stream('stdin')
-        comment = std_in.read()
+        comment = _read_comment_from_stdin()
     github.pull_request_comment(repo, pr, comment)
 
-# Add GitHub latest pull request command
-@cli.command()
-@click.option('--repo', default=None, help='The repository to use (format: user/repo)', required=True, type=str)
-@click.option('--source', default=None, help='The name of the source branch of the pull request', required=True, type=str)
-def github_latest_pr(repo, source):
-    """
-    Find the most recent Pull Request for a given source branch
-    """
-    import lib.github_api as github
-    pr = github.get_latest_pull_request(repo, source)
-    return pr
 
-@cli.command()
-@click.option('--project', default=None, help='The project to use (format: user/repo)', required=True, type=str)
-@click.option('--issue', default=None, help='The issue number', required=False, type=int)
-@click.option('--mergerequest', default=None, help='The merge request number', required=False, type=int)
-@click.option('--comment', default=None, help='The comment to post', required=False, type=str)
-def gitlab_comment(project, issue, mergerequest, comment):
+@github_group.command("latest-pr")
+@click.option(
+    "--repo", required=True, help="The repository to use (format: owner/repo)"
+)
+@click.option("--source", required=True, help="The name of the source branch")
+def github_latest_pr(repo: str, source: str):
     """
-    This command will post a comment to a Gitlab issue.
+    Find the most recent Pull Request for a given source branch.
     """
+    pr_number = github.get_latest_pull_request(repo, source)
+    if pr_number:
+        click.echo(pr_number)
 
-    import lib.gitlab_api as gitlab
+
+# --- GitLab Commands ---
+@cli.group(name="gitlab")
+def gitlab_group():
+    """Commands for interacting with GitLab."""
+    pass
+
+
+@gitlab_group.command("comment")
+@click.option(
+    "--project",
+    required=True,
+    help="The project to use (format: owner/repo or project ID)",
+)
+@click.option("--issue", type=int, help="The issue number")
+@click.option("--mergerequest", type=int, help="The merge request number")
+@click.option(
+    "--comment", help="The comment to post (reads from stdin if not provided)"
+)
+def gitlab_comment(
+    project: str,
+    issue: Optional[int],
+    mergerequest: Optional[int],
+    comment: Optional[str],
+):
+    """
+    This command will post a comment to a GitLab issue or merge request.
+    """
+    if not issue and not mergerequest:
+        raise click.UsageError("Please specify either --issue or --mergerequest.")
+    if issue and mergerequest:
+        raise click.UsageError(
+            "Please specify either --issue or --mergerequest, not both."
+        )
+
     if comment is None:
-        click.echo('Reading the comment from stdin. Press Ctrl+D when done.')
-        std_in = click.get_text_stream('stdin')
-        comment = std_in.read()
+        comment = _read_comment_from_stdin()
 
-    if issue is not None:
+    if issue:
         gitlab.issue_comment(project, issue, comment)
-    elif mergerequest is not None:
+    elif mergerequest:
         gitlab.merge_request_comment(project, mergerequest, comment)
-    else:
-        click.echo('Please specify either an issue or a merge request to comment on')
-
-@cli.command()
-@click.option('--project', default=None, help='The project to use (format: user/repo)', required=True, type=str)
-@click.option('--source', default=None, help='The name of the source branch of the merge request', required=False, type=str)
-def gitlab_mergerequest(project, source):
-    """
-    Find the most recent Merge Request for a given source branch
-    """
-    import lib.gitlab_api as gitlab
-    mergerequest = gitlab.get_latest_merge_request(project, source)
-    return mergerequest
 
 
-@cli.command()
-@click.option('--diff', default=None, help='Path to the Git diff to comment on', required=True, type=str)
-def vertex_code_summary(diff):
+@gitlab_group.command("latest-mr")
+@click.option(
+    "--project",
+    required=True,
+    help="The project to use (format: owner/repo or project ID)",
+)
+@click.option("--source", required=True, help="The name of the source branch")
+def gitlab_latest_mr(project: str, source: str):
     """
-    Write a human-readable summary of a Git Diff
+    Find the most recent Merge Request for a given source branch.
     """
-    import lib.vertex_api as vertex
-    return vertex.code_summary(diff)
+    mr_id = gitlab.get_latest_merge_request(project, source)
+    if mr_id:
+        click.echo(mr_id)
 
-@cli.command()
-@click.option('--diff', default=None, help='Path to the Git diff to comment on', required=True, type=str)
-def vertex_code_review(diff):
-    """
-    Review on a Git Diff
-    """
-    import lib.vertex_api as vertex
-    return vertex.code_review(diff)
 
-@cli.command()
-@click.option('--diff', default=None, help='Path to the Git diff to comment on', required=True, type=str)
-def vertex_release_notes(diff):
-    """
-    Write release notes for a Git Diff
-    """
-    import lib.vertex_api as vertex
-    return vertex.release_notes(diff)
+# --- Vertex AI Commands ---
+@cli.group(name="vertex")
+def vertex_group():
+    """Commands for interacting with Vertex AI."""
+    pass
 
-if __name__ == '__main__':
+
+@vertex_group.command("code-summary")
+@click.option(
+    "--diff",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to the Git diff file",
+)
+def vertex_code_summary(diff: str):
+    """
+    Write a human-readable summary of a Git Diff.
+    """
+    vertex.code_summary(diff)
+
+
+@vertex_group.command("code-review")
+@click.option(
+    "--diff",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to the Git diff file",
+)
+def vertex_code_review(diff: str):
+    """
+    Provide a code review for a Git Diff.
+    """
+    vertex.code_review(diff)
+
+
+@vertex_group.command("release-notes")
+@click.option(
+    "--diff",
+    required=True,
+    type=click.Path(exists=True),
+    help="Path to the Git diff file",
+)
+def vertex_release_notes(diff: str):
+    """
+    Write release notes for a Git Diff.
+    """
+    vertex.release_notes(diff)
+
+
+if __name__ == "__main__":
     cli()
