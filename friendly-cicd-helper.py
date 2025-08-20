@@ -124,5 +124,85 @@ def vertex_release_notes(diff):
     import lib.vertex_api as vertex
     return vertex.release_notes(diff)
 
+@cli.command()
+@click.option('--diff', default=None, help='Path to the Git diff to scan for security issues', required=True, type=str)
+@click.option('--format', default='json', help='Output format (json, text)', type=click.Choice(['json', 'text']))
+@click.option('--output', default=None, help='Output file path (stdout if not specified)', type=str)
+def security_scan(diff, format, output):
+    """
+    Scan a Git diff for security vulnerabilities
+    """
+    import json
+    import lib.security_analyzer as security
+    
+    # Perform security scan
+    report = security.scan_diff_file(diff)
+    
+    # Handle errors
+    if "error" in report:
+        click.echo(f"Error: {report['error']}", err=True)
+        return
+    
+    # Format output
+    if format == 'json':
+        output_content = json.dumps(report, indent=2)
+    else:  # text format
+        output_content = _format_security_report_text(report)
+    
+    # Write output
+    if output:
+        with open(output, 'w') as f:
+            f.write(output_content)
+        click.echo(f"Security report written to {output}")
+    else:
+        click.echo(output_content)
+
+def _format_security_report_text(report):
+    """Format security report as human-readable text."""
+    if not report.get('findings'):
+        return "✅ No security issues found in the diff."
+    
+    summary = report['summary']
+    output = []
+    
+    # Summary section
+    output.append("🔒 SECURITY SCAN REPORT")
+    output.append("=" * 50)
+    output.append(f"Total findings: {summary['total_findings']}")
+    output.append(f"Critical: {summary['critical']} | High: {summary['high']} | Medium: {summary['medium']} | Low: {summary['low']}")
+    output.append("")
+    
+    # Findings section
+    for i, finding in enumerate(report['findings'], 1):
+        severity_icon = {
+            'critical': '🔴',
+            'high': '🟠', 
+            'medium': '🟡',
+            'low': '🔵',
+            'info': 'ℹ️'
+        }.get(finding['severity'], '❓')
+        
+        output.append(f"{i}. {severity_icon} {finding['title']}")
+        output.append(f"   File: {finding['file_path']}:{finding['line_number']}")
+        output.append(f"   Severity: {finding['severity'].upper()}")
+        output.append(f"   Confidence: {finding['confidence']:.0%}")
+        output.append(f"   Description: {finding['description']}")
+        if finding.get('cwe_id'):
+            output.append(f"   CWE: {finding['cwe_id']}")
+        if finding.get('owasp_category'):
+            output.append(f"   OWASP: {finding['owasp_category']}")
+        output.append(f"   Code: {finding['code_snippet']}")
+        output.append(f"   Recommendation: {finding['recommendation']}")
+        output.append("")
+    
+    # Recommendations section
+    if report.get('recommendations'):
+        output.append("💡 RECOMMENDATIONS")
+        output.append("-" * 30)
+        for rec in report['recommendations']:
+            output.append(f"• {rec}")
+    
+    return "\n".join(output)
+
 if __name__ == '__main__':
     cli()
