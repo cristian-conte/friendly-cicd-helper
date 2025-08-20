@@ -15,7 +15,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# lib/
 lib64/
 parts/
 sdist/
@@ -114,6 +114,9 @@ credentials.json
 
 # macOS specific
 .DS_Store
-
+*.DS_Store
 # Serena cache files
 .serena/cache/
+.DS_Store
+.github/.DS_Store
+.serena/.DS_Store

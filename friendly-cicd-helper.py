@@ -1,17 +1,3 @@
-# Copyright 2023 Google LLC
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
 import click
 
 @click.group()
@@ -123,6 +109,114 @@ def vertex_release_notes(diff):
     """
     import lib.vertex_api as vertex
     return vertex.release_notes(diff)
+
+@cli.command()
+@click.option('--diff', default=None, help='Path to the Git diff to scan for security issues', required=True, type=str)
+@click.option('--format', default='json', help='Output format (json, text)', type=click.Choice(['json', 'text']))
+@click.option('--output', default=None, help='Output file path (stdout if not specified)', type=str)
+def security_scan(diff, format, output):
+    """
+    Scan a Git diff for security vulnerabilities
+    """
+    import json
+    from lib.security_analyzer import SecurityAnalyzer
+    
+    # Read diff content
+    try:
+        with open(diff, 'r') as f:
+            diff_content = f.read()
+    except FileNotFoundError:
+        click.echo(f"Error: Diff file '{diff}' not found", err=True)
+        return
+    except Exception as e:
+        click.echo(f"Error reading diff file: {e}", err=True)
+        return
+    
+    # Perform security scan
+    analyzer = SecurityAnalyzer()
+    findings = analyzer.analyze_diff(diff_content)
+    
+    # Format output
+    if format == 'json':
+        report = {
+            "findings": [
+                {
+                    "type": finding.vulnerability_type.value,
+                    "severity": finding.severity.value,
+                    "confidence": finding.confidence,
+                    "title": finding.title,
+                    "description": finding.description,
+                    "file": finding.file_path,
+                    "line": finding.line_number,
+                    "code": finding.code_snippet,
+                    "recommendation": finding.recommendation,
+                    "cwe_id": finding.cwe_id
+                }
+                for finding in findings
+            ],
+            "summary": {
+                "total_findings": len(findings),
+                "critical_severity": len([f for f in findings if f.severity.value == "critical"]),
+                "high_severity": len([f for f in findings if f.severity.value == "high"]),
+                "medium_severity": len([f for f in findings if f.severity.value == "medium"]),
+                "low_severity": len([f for f in findings if f.severity.value == "low"])
+            }
+        }
+        output_content = json.dumps(report, indent=2)
+    else:  # text format
+        output_content = _format_security_report_text(findings)
+    
+    # Write output
+    if output:
+        with open(output, 'w') as f:
+            f.write(output_content)
+        click.echo(f"Security report written to {output}")
+    else:
+        click.echo(output_content)
+
+def _format_security_report_text(findings):
+    """Format security report as human-readable text."""
+    if not findings:
+        return "✅ No security issues found in the diff."
+    
+    output = []
+    
+    # Summary section
+    output.append("🔒 SECURITY SCAN REPORT")
+    output.append("=" * 50)
+    output.append(f"Total findings: {len(findings)}")
+    
+    # Count by severity
+    critical_count = len([f for f in findings if f.severity.value == "critical"])
+    high_count = len([f for f in findings if f.severity.value == "high"])
+    medium_count = len([f for f in findings if f.severity.value == "medium"])
+    low_count = len([f for f in findings if f.severity.value == "low"])
+    
+    output.append(f"Critical: {critical_count} | High: {high_count} | Medium: {medium_count} | Low: {low_count}")
+    output.append("")
+    
+    # Findings section
+    for i, finding in enumerate(findings, 1):
+        severity_icon = {
+            'critical': '🔴',
+            'high': '🟠', 
+            'medium': '🟡',
+            'low': '🔵',
+            'info': 'ℹ️'
+        }.get(finding.severity.value, '❓')
+        
+        output.append(f"{i}. {severity_icon} {finding.title}")
+        output.append(f"   File: {finding.file_path}:{finding.line_number}")
+        output.append(f"   Severity: {finding.severity.value.upper()}")
+        output.append(f"   Confidence: {finding.confidence:.0%}")
+        output.append(f"   Description: {finding.description}")
+        if finding.cwe_id:
+            output.append(f"   CWE: {finding.cwe_id}")
+        output.append(f"   Code: {finding.code_snippet}")
+        output.append(f"   Recommendation: {finding.recommendation}")
+        output.append("")
+    
+    return "\n".join(output)
 
 if __name__ == '__main__':
     cli()

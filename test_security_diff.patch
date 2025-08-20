@@ -1,0 +1,25 @@
+diff --git a/test_app.py b/test_app.py
+index 1234567..8901234 100644
+--- a/test_app.py
++++ b/test_app.py
+@@ -1,10 +1,15 @@
+ import os
+ import sqlite3
++import subprocess
+ 
+ def get_user_data(user_id):
+     connection = sqlite3.connect('database.db')
+     cursor = connection.cursor()
+-    query = f"SELECT * FROM users WHERE id = {user_id}"
++    # Vulnerable SQL injection
++    query = "SELECT * FROM users WHERE id = " + str(user_id)
+     cursor.execute(query)
+     return cursor.fetchall()
+ 
++def run_command(user_input):
++    # Vulnerable command injection
++    return subprocess.call("ls " + user_input, shell=True)
++
++# Hardcoded secret
++API_KEY = "AIzaSyDXQlWe7iWlXXXXXXXXXXXXXXXXXXXXXXX"
++AWS_SECRET = "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
