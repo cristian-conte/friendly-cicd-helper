@@ -2,3 +2,6 @@ click==8.1.7
 PyGithub==2.2.0
 python-gitlab==4.4.0
 google-cloud-aiplatform==1.52.0
+bandit==1.7.5
+safety==3.0.1
+semgrep==1.45.0

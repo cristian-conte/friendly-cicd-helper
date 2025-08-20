@@ -133,21 +133,51 @@ def security_scan(diff, format, output):
     Scan a Git diff for security vulnerabilities
     """
     import json
-    import lib.security_analyzer as security
+    from lib.security_analyzer import SecurityAnalyzer
+    
+    # Read diff content
+    try:
+        with open(diff, 'r') as f:
+            diff_content = f.read()
+    except FileNotFoundError:
+        click.echo(f"Error: Diff file '{diff}' not found", err=True)
+        return
+    except Exception as e:
+        click.echo(f"Error reading diff file: {e}", err=True)
+        return
     
     # Perform security scan
-    report = security.scan_diff_file(diff)
-    
-    # Handle errors
-    if "error" in report:
-        click.echo(f"Error: {report['error']}", err=True)
-        return
+    analyzer = SecurityAnalyzer()
+    findings = analyzer.analyze_diff(diff_content)
     
     # Format output
     if format == 'json':
+        report = {
+            "findings": [
+                {
+                    "type": finding.vulnerability_type.value,
+                    "severity": finding.severity.value,
+                    "confidence": finding.confidence,
+                    "title": finding.title,
+                    "description": finding.description,
+                    "file": finding.file_path,
+                    "line": finding.line_number,
+                    "code": finding.code_snippet,
+                    "recommendation": finding.recommendation,
+                    "cwe_id": finding.cwe_id
+                }
+                for finding in findings
+            ],
+            "summary": {
+                "total_findings": len(findings),
+                "high_severity": len([f for f in findings if f.severity.value == "high"]),
+                "medium_severity": len([f for f in findings if f.severity.value == "medium"]),
+                "low_severity": len([f for f in findings if f.severity.value == "low"])
+            }
+        }
         output_content = json.dumps(report, indent=2)
     else:  # text format
-        output_content = _format_security_report_text(report)
+        output_content = _format_security_report_text(findings)
     
     # Write output
     if output:
@@ -157,50 +187,48 @@ def security_scan(diff, format, output):
     else:
         click.echo(output_content)
 
-def _format_security_report_text(report):
+def _format_security_report_text(findings):
     """Format security report as human-readable text."""
-    if not report.get('findings'):
+    if not findings:
         return "✅ No security issues found in the diff."
     
-    summary = report['summary']
     output = []
     
     # Summary section
     output.append("🔒 SECURITY SCAN REPORT")
     output.append("=" * 50)
-    output.append(f"Total findings: {summary['total_findings']}")
-    output.append(f"Critical: {summary['critical']} | High: {summary['high']} | Medium: {summary['medium']} | Low: {summary['low']}")
+    output.append(f"Total findings: {len(findings)}")
+    
+    # Count by severity
+    high_count = len([f for f in findings if f.severity.value == "high"])
+    medium_count = len([f for f in findings if f.severity.value == "medium"])
+    low_count = len([f for f in findings if f.severity.value == "low"])
+    
+    output.append(f"High: {high_count} | Medium: {medium_count} | Low: {low_count}")
     output.append("")
     
     # Findings section
-    for i, finding in enumerate(report['findings'], 1):
+    for i, finding in enumerate(findings, 1):
         severity_icon = {
             'critical': '🔴',
             'high': '🟠', 
             'medium': '🟡',
             'low': '🔵',
             'info': 'ℹ️'
-        }.get(finding['severity'], '❓')
+        }.get(finding.severity.value, '❓')
         
-        output.append(f"{i}. {severity_icon} {finding['title']}")
-        output.append(f"   File: {finding['file_path']}:{finding['line_number']}")
-        output.append(f"   Severity: {finding['severity'].upper()}")
-        output.append(f"   Confidence: {finding['confidence']:.0%}")
-        output.append(f"   Description: {finding['description']}")
-        if finding.get('cwe_id'):
-            output.append(f"   CWE: {finding['cwe_id']}")
-        if finding.get('owasp_category'):
-            output.append(f"   OWASP: {finding['owasp_category']}")
-        output.append(f"   Code: {finding['code_snippet']}")
-        output.append(f"   Recommendation: {finding['recommendation']}")
+        output.append(f"{i}. {severity_icon} {finding.title}")
+        output.append(f"   File: {finding.file_path}:{finding.line_number}")
+        output.append(f"   Severity: {finding.severity.value.upper()}")
+        output.append(f"   Confidence: {finding.confidence:.0%}")
+        output.append(f"   Description: {finding.description}")
+        if finding.cwe_id:
+            output.append(f"   CWE: {finding.cwe_id}")
+        if finding.owasp_category:
+            output.append(f"   OWASP: {finding.owasp_category}")
+        output.append(f"   Code: {finding.code_snippet}")
+        output.append(f"   Recommendation: {finding.recommendation}")
         output.append("")
-    
-    # Recommendations section
-    if report.get('recommendations'):
-        output.append("💡 RECOMMENDATIONS")
-        output.append("-" * 30)
-        for rec in report['recommendations']:
-            output.append(f"• {rec}")
     
     return "\n".join(output)
 
