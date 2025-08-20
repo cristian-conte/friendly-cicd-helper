@@ -114,6 +114,6 @@ credentials.json
 
 # macOS specific
 .DS_Store
-
+*.DS_Store
 # Serena cache files
 .serena/cache/
