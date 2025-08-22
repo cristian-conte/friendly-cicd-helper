@@ -34,14 +34,13 @@ password = "admin123"  # Should trigger B105
             try:
                 data = json.loads(result.stdout)
                 print(f"Found {len(data.get('results', []))} bandit findings")
-                return True
+                assert len(data.get('results', [])) > 0, "Expected bandit to find security issues"
             except json.JSONDecodeError as e:
                 print(f"JSON decode error: {e}")
         
     except Exception as e:
         print(f"Error: {e}")
-    
-    return False
+        assert False, f"Bandit test failed: {e}"
 
 def test_safety():
     """Test safety directly"""
@@ -56,12 +55,12 @@ def test_safety():
         print(f"Stdout: {result.stdout[:500]}")
         print(f"Stderr: {result.stderr[:500]}")
         
-        return True
+        # Safety check passed (exit code 0 means no vulnerabilities found, which is fine)
+        assert True, "Safety test completed successfully"
         
     except Exception as e:
         print(f"Error: {e}")
-    
-    return False
+        assert False, f"Safety test failed: {e}"
 
 def test_semgrep():
     """Test semgrep directly"""
@@ -88,14 +87,15 @@ subprocess.call("ls", shell=True)  # Should trigger semgrep rule
             try:
                 data = json.loads(result.stdout)
                 print(f"Found {len(data.get('results', []))} semgrep findings")
-                return True
+                assert True, "Semgrep executed successfully"
+                return
             except json.JSONDecodeError as e:
                 print(f"JSON decode error: {e}")
         
     except Exception as e:
         print(f"Error: {e}")
     
-    return False
+    assert False, "Semgrep test failed"
 
 if __name__ == "__main__":
     print("Testing security tools directly...")

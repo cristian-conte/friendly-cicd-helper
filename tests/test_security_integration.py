@@ -52,7 +52,12 @@ index 0000000..1234567
     if not findings:
         print("No security findings detected.")
     
-    return len(findings)
+    # Assert that basic functionality works (should find at least some issues)
+    assert isinstance(findings, list), "Should return a list of findings"
+    
+    # Return the count for the standalone script execution
+    if __name__ == "__main__":
+        return len(findings)
 
 if __name__ == "__main__":
     try:

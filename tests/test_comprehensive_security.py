@@ -94,7 +94,12 @@ index 0000000..abcdef123
         if count > 0:
             print(f"   {severity.title()}: {count}")
     
-    return len(findings)
+    # Assert that we found security issues (should be > 0 for this comprehensive test)
+    assert len(findings) > 0, "Should find security issues in comprehensive test"
+    
+    # Return the count for the standalone script execution
+    if __name__ == "__main__":
+        return len(findings)
 
 if __name__ == "__main__":
     try:
