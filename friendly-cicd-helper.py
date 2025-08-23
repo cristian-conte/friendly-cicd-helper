@@ -111,7 +111,65 @@ def vertex_release_notes(diff):
     return vertex.release_notes(diff)
 
 @cli.command()
+@click.option('--repo', default=None, help='The repository to use (format: user/repo)', required=True, type=str)
+@click.option('--sha', default=None, help='The git SHA of the commit', required=True, type=str)
 @click.option('--diff', default=None, help='Path to the Git diff to scan for security issues', required=True, type=str)
+def github_security_check(repo, sha, diff):
+    """
+    Create a GitHub check run for security scan results
+    """
+    import json
+    from lib.security_analyzer import SecurityAnalyzer
+    from lib.github_api import create_security_check_run
+    
+    # Read diff content
+    try:
+        with open(diff, 'r') as f:
+            diff_content = f.read()
+    except FileNotFoundError:
+        click.echo(f"Error: Diff file '{diff}' not found", err=True)
+        return
+    except Exception as e:
+        click.echo(f"Error reading diff file: {e}", err=True)
+        return
+    
+    # Perform security scan
+    analyzer = SecurityAnalyzer()
+    findings = analyzer.analyze_diff(diff_content)
+    
+    # Create GitHub check run
+    create_security_check_run(repo, sha, findings)
+
+@cli.command()
+@click.option('--repo', default=None, help='The repository to use (format: user/repo)', required=True, type=str)
+@click.option('--sha', default=None, help='The git SHA of the commit', required=True, type=str)
+@click.option('--diff', default=None, help='Path to the Git diff to analyze for test intelligence', required=True, type=str)
+@click.option('--coverage-threshold', default=80, help='Minimum coverage threshold percentage', type=int)
+def github_test_intelligence_check(repo, sha, diff, coverage_threshold):
+    """
+    Create a GitHub check run for test intelligence results
+    """
+    import json
+    from lib.test_analyzer import TestIntelligenceAnalyzer
+    from lib.github_api import create_test_intelligence_check_run
+    
+    # Read diff content
+    try:
+        with open(diff, 'r') as f:
+            diff_content = f.read()
+    except FileNotFoundError:
+        click.echo(f"Error: Diff file '{diff}' not found", err=True)
+        return
+    except Exception as e:
+        click.echo(f"Error reading diff file: {e}", err=True)
+        return
+    
+    # Perform test intelligence analysis
+    analyzer = TestIntelligenceAnalyzer()
+    findings = analyzer.analyze_diff(diff_content)
+    
+    # Create GitHub check run
+    create_test_intelligence_check_run(repo, sha, findings)
 @click.option('--format', default='json', help='Output format (json, text)', type=click.Choice(['json', 'text']))
 @click.option('--output', default=None, help='Output file path (stdout if not specified)', type=str)
 def security_scan(diff, format, output):

@@ -8,6 +8,8 @@ steps:
         git fetch origin
         git diff origin/main --output /workspace/diff.txt
         cat /workspace/diff.txt
+        # Get current commit SHA for GitHub checks
+        git rev-parse HEAD > /workspace/commit_sha.txt
 
   - id: Get the PR ID (GITHUB)
     name: 'gcr.io/just-ratio-467615-s1/friendly-cicd-helper:latest'
@@ -79,6 +81,9 @@ steps:
       # Also generate JSON output for potential further processing
       friendly-cicd-helper security-scan --diff /workspace/diff.txt --format json --output /workspace/security-report.json
       
+      # Create GitHub check run for security scan
+      friendly-cicd-helper github-security-check --repo $_GITHUB_PROJECT --sha $$(cat /workspace/commit_sha.txt) --diff /workspace/diff.txt
+      
       # Post the markdown results as a comment
       cat security-scan.md | friendly-cicd-helper github-pr-comment --repo $_GITHUB_PROJECT --pr $$(cat /workspace/github_pull_request_iid)
     secretEnv: ['GITHUB_TOKEN']
@@ -93,8 +98,15 @@ steps:
       echo "## 🧪 Test Intelligence Analysis" | tee test-intelligence.md
       echo "_Automated test analysis using coverage.py, pytest, and AI-powered insights_" | tee -a test-intelligence.md
       echo "" | tee -a test-intelligence.md
+      
+      # Run test intelligence analysis
       friendly-cicd-helper test-intelligence --diff /workspace/diff.txt --format text --generate-tests --coverage-threshold 80 | tee -a test-intelligence.md
       friendly-cicd-helper test-intelligence --diff /workspace/diff.txt --format json --output /workspace/test-intelligence-report.json
+      
+      # Create GitHub check run for test intelligence
+      friendly-cicd-helper github-test-intelligence-check --repo $_GITHUB_PROJECT --sha $$(cat /workspace/commit_sha.txt) --diff /workspace/diff.txt --coverage-threshold 80
+      
+      # Post the markdown results as a comment
       cat test-intelligence.md | friendly-cicd-helper github-pr-comment --repo $_GITHUB_PROJECT --pr $$(cat /workspace/github_pull_request_iid)
     secretEnv: ['GITHUB_TOKEN']
   # - id: Build the image with Skaffold
