@@ -87,11 +87,10 @@ steps:
     name: 'gcr.io/just-ratio-467615-s1/friendly-cicd-helper:latest'
     entrypoint: /bin/bash
     args:
-    - .github/cloudbuild/run_test_intelligence.sh
-    - /workspace/diff.txt
-    - github-pr-comment
-    - $_GITHUB_PROJECT
-    - $$(cat /workspace/github_pull_request_iid)
+    - -c
+    - |
+      export VERTEX_GCP_PROJECT=$PROJECT_ID
+      .github/cloudbuild/run_test_intelligence.sh /workspace/diff.txt github-pr-comment $_GITHUB_PROJECT $$(cat /workspace/github_pull_request_iid)
     secretEnv: ['GITHUB_TOKEN']
   # - id: Build the image with Skaffold
   #   name: gcr.io/k8s-skaffold/skaffold
