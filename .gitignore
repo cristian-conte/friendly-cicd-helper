@@ -132,3 +132,13 @@ test_*.txt
 *cache
 .serena/.DS_Store
 .DS_Store
+
+# Test intelligence output files
+test-intelligence.md
+test-intelligence-report.json
+
+# Codacy logs (but keep config files)
+.codacy/logs/
+
+#Ignore insiders AI rules
+.github/instructions/codacy.instructions.md

@@ -217,7 +217,7 @@ def test_intelligence(diff, format, output, coverage_threshold, generate_tests):
     """
     import json
     from lib.test_analyzer import TestIntelligenceAnalyzer
-    from lib.vertex_api import code_summary
+    from lib.vertex_api import generate_content_from_text
     
     # Read diff content
     try:
@@ -253,7 +253,7 @@ Please provide:
 
 Focus on functions, classes, and logic that have been added or modified.
 """
-            ai_response = code_summary(test_prompt)
+            ai_response = generate_content_from_text(test_prompt)
             ai_suggestions = [ai_response] if ai_response else []
         except Exception as e:
             click.echo(f"Warning: Could not generate AI test suggestions: {e}", err=True)

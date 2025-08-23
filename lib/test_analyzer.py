@@ -204,7 +204,6 @@ class TestIntelligenceAnalyzer:
                         os.makedirs(os.path.dirname(target_path), exist_ok=True)
                         
                         import shutil
-                        import shutil
                         shutil.copyfile(temp_path, target_path)
                 
                 # Run coverage with pytest

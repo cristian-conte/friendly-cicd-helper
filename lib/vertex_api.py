@@ -142,3 +142,19 @@ ${load_diff(diff_path)}
     )
     print(response.text.strip())
     return response.text
+
+
+def generate_content_from_text(prompt_text):
+    """
+    Generate content from a text prompt directly (not a file path).
+    Used for AI-powered test suggestions and other text-based prompts.
+    """
+    try:
+        response = model.generate_content(
+            prompt_text,
+            generation_config=generation_config
+        )
+        return response.text.strip()
+    except Exception as e:
+        print(f"Error generating content: {e}", file=sys.stderr)
+        return None
