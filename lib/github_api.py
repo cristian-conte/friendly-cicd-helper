@@ -90,9 +90,17 @@ def create_check_run(repo_path, head_sha, name, status, conclusion=None, title=N
         print('Please set the GITHUB_TOKEN environment variable.')
         return None
         
+    print(f"Debug: Creating check run for {repo_path}, SHA: {head_sha}, Name: {name}")
+    
     auth = Auth.Token(token)
     client = Github(auth=auth)
-    repo = client.get_repo(repo_path)
+    
+    try:
+        repo = client.get_repo(repo_path)
+        print(f"Debug: Successfully connected to repository {repo_path}")
+    except Exception as e:
+        print(f'Failed to access repository {repo_path}: {e}', file=sys.stderr)
+        return None
     
     output = {}
     if title:
@@ -115,12 +123,17 @@ def create_check_run(repo_path, head_sha, name, status, conclusion=None, title=N
     if output:
         check_run_data['output'] = output
     
+    print(f"Debug: Check run data: {check_run_data}")
+    
     try:
         check_run = repo.create_check_run(**check_run_data)
         print(f'Created GitHub check run: {check_run.html_url}')
         return check_run
     except Exception as e:
         print(f'Failed to create check run: {e}', file=sys.stderr)
+        # Check if it's a permissions issue
+        if "403" in str(e) or "permission" in str(e).lower():
+            print("This appears to be a permissions issue. Make sure your GitHub token has 'checks:write' permission.", file=sys.stderr)
         return None
 
 
