@@ -8,3 +8,6 @@ google-cloud-storage==2.19.0
 bandit==1.7.5
 safety==3.0.1
 semgrep==1.45.0
+coverage==7.4.0
+pytest==8.0.0
+mutmut==2.4.5

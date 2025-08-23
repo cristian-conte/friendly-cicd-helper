@@ -68,6 +68,26 @@ steps:
       cat security-scan.md | friendly-cicd-helper gitlab-comment --project $_GITLAB_PROJECT --mergerequest $$(cat /workspace/gitlab_merge_request_iid)
     secretEnv: ['GITLAB_TOKEN']
 
+  - id: Test Intelligence Analysis (GITLAB)
+    name: 'gcr.io/just-ratio-467615-s1/friendly-cicd-helper:latest'
+    entrypoint: sh
+    args:
+    - -c
+    - |
+      echo "## 🧪 Test Intelligence Analysis" | tee test-intelligence.md
+      echo "_Automated test analysis using coverage.py, pytest, and AI-powered insights_" | tee -a test-intelligence.md
+      echo "" | tee -a test-intelligence.md
+      
+      # Run test intelligence analysis with AI suggestions
+      friendly-cicd-helper test-intelligence --diff /workspace/diff.txt --format text --generate-tests --coverage-threshold 80 | tee -a test-intelligence.md
+      
+      # Also generate JSON output for potential further processing
+      friendly-cicd-helper test-intelligence --diff /workspace/diff.txt --format json --output /workspace/test-intelligence-report.json
+      
+      # Post the markdown results as a comment
+      cat test-intelligence.md | friendly-cicd-helper gitlab-comment --project $_GITLAB_PROJECT --mergerequest $$(cat /workspace/gitlab_merge_request_iid)
+    secretEnv: ['GITLAB_TOKEN']
+
   # - id: Build the image with Skaffold
   #   name: gcr.io/k8s-skaffold/skaffold
   #   entrypoint: /bin/bash

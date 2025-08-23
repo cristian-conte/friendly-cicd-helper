@@ -174,6 +174,75 @@ def security_scan(diff, format, output):
     else:
         click.echo(output_content)
 
+@cli.command()
+@click.option('--diff', default=None, help='Path to the Git diff to analyze for test intelligence', required=True, type=str)
+@click.option('--format', default='json', help='Output format (json, text)', type=click.Choice(['json', 'text']))
+@click.option('--output', default=None, help='Output file path (stdout if not specified)', type=str)
+@click.option('--coverage-threshold', default=80, help='Minimum coverage threshold percentage', type=int)
+@click.option('--generate-tests', default=False, help='Include AI-generated test suggestions', is_flag=True)
+def test_intelligence(diff, format, output, coverage_threshold, generate_tests):
+    """
+    Analyze a Git diff for test intelligence and coverage gaps
+    """
+    import json
+    from lib.test_analyzer import TestIntelligenceAnalyzer
+    from lib.vertex_api import code_summary
+    
+    # Read diff content
+    try:
+        with open(diff, 'r') as f:
+            diff_content = f.read()
+    except FileNotFoundError:
+        click.echo(f"Error: Diff file '{diff}' not found", err=True)
+        return
+    except Exception as e:
+        click.echo(f"Error reading diff file: {e}", err=True)
+        return
+    
+    # Perform test intelligence analysis
+    analyzer = TestIntelligenceAnalyzer()
+    findings = analyzer.analyze_diff(diff_content)
+    
+    # Generate AI-powered test suggestions if requested
+    ai_suggestions = []
+    if generate_tests and diff_content.strip():
+        try:
+            # Use Vertex AI to generate test suggestions
+            test_prompt = f"""
+Analyze this code diff and provide specific test case suggestions:
+
+{diff_content}
+
+Please provide:
+1. Specific test methods with descriptive names
+2. Test scenarios including edge cases
+3. Mock requirements if needed
+4. Test data suggestions
+
+Focus on functions, classes, and logic that have been added or modified.
+"""
+            ai_response = code_summary(test_prompt)
+            ai_suggestions = [ai_response] if ai_response else []
+        except Exception as e:
+            click.echo(f"Warning: Could not generate AI test suggestions: {e}", err=True)
+    
+    # Format output
+    if format == 'json':
+        report = analyzer.generate_report(findings)
+        if ai_suggestions:
+            report["ai_test_suggestions"] = ai_suggestions
+        output_content = json.dumps(report, indent=2)
+    else:  # text format
+        output_content = _format_test_intelligence_report_text(findings, ai_suggestions, coverage_threshold)
+    
+    # Write output
+    if output:
+        with open(output, 'w') as f:
+            f.write(output_content)
+        click.echo(f"Test intelligence report written to {output}")
+    else:
+        click.echo(output_content)
+
 def _format_security_report_text(findings):
     """Format security report as human-readable text."""
     if not findings:
@@ -215,6 +284,125 @@ def _format_security_report_text(findings):
         output.append(f"   Code: {finding.code_snippet}")
         output.append(f"   Recommendation: {finding.recommendation}")
         output.append("")
+    
+    return "\n".join(output)
+
+def _format_test_intelligence_report_text(findings, ai_suggestions=None, coverage_threshold=80):
+    """Format test intelligence report as human-readable text."""
+    if not findings and not ai_suggestions:
+        return f"✅ No test intelligence issues found. All code appears to have adequate test coverage above {coverage_threshold}%."
+    
+    output = []
+    
+    # Header section
+    output.append("🧪 TEST INTELLIGENCE REPORT")
+    output.append("=" * 50)
+    
+    if findings:
+        # Summary section
+        total_findings = len(findings)
+        coverage_gaps = len([f for f in findings if f.issue_type.value == "coverage_gap"])
+        test_smells = len([f for f in findings if f.issue_type.value == "test_smell"])
+        missing_tests = len([f for f in findings if f.test_file_suggestion])
+        
+        output.append(f"Total findings: {total_findings}")
+        output.append(f"Coverage gaps: {coverage_gaps} | Test smells: {test_smells} | Missing tests: {missing_tests}")
+        
+        # Coverage summary if available
+        coverage_findings = [f for f in findings if f.coverage_percentage is not None]
+        if coverage_findings:
+            avg_coverage = sum(f.coverage_percentage for f in coverage_findings) / len(coverage_findings)
+            output.append(f"Average coverage: {avg_coverage:.1f}%")
+        
+        output.append("")
+        
+        # Severity breakdown
+        critical_count = len([f for f in findings if f.severity.value == "critical"])
+        high_count = len([f for f in findings if f.severity.value == "high"])
+        medium_count = len([f for f in findings if f.severity.value == "medium"])
+        low_count = len([f for f in findings if f.severity.value == "low"])
+        
+        output.append(f"Severity: Critical: {critical_count} | High: {high_count} | Medium: {medium_count} | Low: {low_count}")
+        output.append("")
+        
+        # Findings section
+        for i, finding in enumerate(findings, 1):
+            severity_icon = {
+                'critical': '🔴',
+                'high': '🟠', 
+                'medium': '🟡',
+                'low': '🔵',
+                'info': 'ℹ️'
+            }.get(finding.severity.value, '❓')
+            
+            issue_icon = {
+                'coverage_gap': '📊',
+                'test_smell': '🦨',
+                'missing_edge_cases': '🎯',
+                'poor_test_quality': '⚠️',
+                'mutation_survivor': '🧬'
+            }.get(finding.issue_type.value, '🔍')
+            
+            output.append(f"{i}. {severity_icon} {issue_icon} {finding.title}")
+            output.append(f"   File: {finding.file_path}:{finding.line_number}")
+            output.append(f"   Type: {finding.issue_type.value.replace('_', ' ').title()}")
+            output.append(f"   Severity: {finding.severity.value.upper()}")
+            output.append(f"   Confidence: {finding.confidence:.0%}")
+            output.append(f"   Description: {finding.description}")
+            
+            if finding.coverage_percentage is not None:
+                output.append(f"   Coverage: {finding.coverage_percentage:.1f}%")
+            
+            if finding.code_snippet:
+                output.append(f"   Code: {finding.code_snippet}")
+            
+            output.append(f"   Recommendation: {finding.recommendation}")
+            
+            if finding.test_file_suggestion:
+                output.append(f"   Suggested test file: {finding.test_file_suggestion}")
+            
+            output.append("")
+    
+    # AI suggestions section
+    if ai_suggestions:
+        output.append("🤖 AI-GENERATED TEST SUGGESTIONS")
+        output.append("=" * 40)
+        for suggestion in ai_suggestions:
+            output.append(suggestion)
+            output.append("")
+    
+    # Action items summary
+    if findings:
+        output.append("📋 ACTION ITEMS")
+        output.append("=" * 20)
+        
+        # Unique test file suggestions
+        test_files_needed = list(set(f.test_file_suggestion for f in findings if f.test_file_suggestion))
+        if test_files_needed:
+            output.append("Test files to create:")
+            for test_file in test_files_needed:
+                output.append(f"  • {test_file}")
+            output.append("")
+        
+        # Coverage improvements needed
+        coverage_issues = [f for f in findings if f.issue_type.value == "coverage_gap"]
+        if coverage_issues:
+            output.append("Files needing coverage improvement:")
+            for finding in coverage_issues[:5]:  # Show top 5
+                coverage_str = f" ({finding.coverage_percentage:.1f}%)" if finding.coverage_percentage else ""
+                output.append(f"  • {finding.file_path}{coverage_str}")
+            if len(coverage_issues) > 5:
+                output.append(f"  ... and {len(coverage_issues) - 5} more files")
+            output.append("")
+        
+        # Test quality improvements
+        quality_issues = [f for f in findings if f.issue_type.value == "test_smell"]
+        if quality_issues:
+            output.append("Test quality improvements needed:")
+            for finding in quality_issues[:3]:  # Show top 3
+                output.append(f"  • {finding.file_path}: {finding.title}")
+            if len(quality_issues) > 3:
+                output.append(f"  ... and {len(quality_issues) - 3} more issues")
     
     return "\n".join(output)
 
