@@ -68,6 +68,17 @@ steps:
       cat security-scan.md | friendly-cicd-helper gitlab-comment --project $_GITLAB_PROJECT --mergerequest $$(cat /workspace/gitlab_merge_request_iid)
     secretEnv: ['GITLAB_TOKEN']
 
+  - id: Test Intelligence Analysis (GITLAB)
+    name: 'gcr.io/just-ratio-467615-s1/friendly-cicd-helper:latest'
+    entrypoint: /bin/bash
+    args:
+    - .github/cloudbuild/run_test_intelligence.sh
+    - /workspace/diff.txt
+    - gitlab-comment
+    - $_GITLAB_PROJECT
+    - $$(cat /workspace/gitlab_merge_request_iid)
+    secretEnv: ['GITLAB_TOKEN']
+
   # - id: Build the image with Skaffold
   #   name: gcr.io/k8s-skaffold/skaffold
   #   entrypoint: /bin/bash

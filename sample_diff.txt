@@ -1,0 +1,37 @@
+diff --git a/example/calculator.py b/example/calculator.py
+new file mode 100644
+index 0000000..abc1234
+--- /dev/null
++++ b/example/calculator.py
+@@ -0,0 +1,25 @@
++def add(a, b):
++    """Add two numbers."""
++    return a + b
++
++def subtract(a, b):
++    """Subtract two numbers."""
++    return a - b
++
++def divide(a, b):
++    """Divide two numbers with error handling."""
++    if b == 0:
++        raise ValueError("Cannot divide by zero")
++    return a / b
++
++def complex_calculation(x, y, z):
++    """Complex calculation with multiple conditions."""
++    if x > 0:
++        if y > 0:
++            result = x * y
++            for i in range(z):
++                result += i
++            return result
++        else:
++            return x - z
++    elif x < 0:
++        try:
++            return abs(x) / y
++        except ZeroDivisionError:
++            return 0
++    else:
++        return z
