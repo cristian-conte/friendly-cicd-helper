@@ -14,6 +14,7 @@ import logging
 import subprocess
 import json
 import tempfile
+import shutil
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
 from enum import Enum
@@ -56,9 +57,14 @@ class TestFinding:
 class TestIntelligenceAnalyzer:
     """Test intelligence analyzer using industry-standard tools and AI."""
     
-    def __init__(self):
-        """Initialize the test intelligence analyzer."""
+    def __init__(self, test_length_threshold: int = 20):
+        """Initialize the test intelligence analyzer.
+        
+        Args:
+            test_length_threshold: Maximum number of lines for a test method before it's flagged as too long
+        """
         self.logger = logging.getLogger(__name__)
+        self.test_length_threshold = test_length_threshold
         
     def analyze_diff(self, diff_content: str) -> List[TestFinding]:
         """
@@ -113,7 +119,7 @@ class TestIntelligenceAnalyzer:
                 if current_file and current_content:
                     temp_files[current_file] = self._save_temp_file(current_file, '\n'.join(current_content))
                     current_content = []
-                
+
                 # Extract file path
                 parts = line.split(' ')
                 if len(parts) >= 4:
@@ -136,9 +142,8 @@ class TestIntelligenceAnalyzer:
                 elif line.startswith(' '):
                     # Add context lines (remove space prefix)
                     current_content.append(line[1:])
-                elif not line.startswith('-'):
-                    # Add other lines as-is (but skip deletion lines)
-                    current_content.append(line)
+                # Lines starting with '-' are removed from the original, so they should not be in the new file content.
+                # Any other lines (e.g., empty lines that are not context, or other diff metadata) should also be excluded.
         
         # Save last file
         if current_file and current_content:
@@ -198,9 +203,9 @@ class TestIntelligenceAnalyzer:
                         target_path = os.path.join(temp_dir, orig_path)
                         os.makedirs(os.path.dirname(target_path), exist_ok=True)
                         
-                        with open(temp_path, 'r', encoding='utf-8', errors='ignore') as src:
-                            with open(target_path, 'w', encoding='utf-8') as dst:
-                                dst.write(src.read())
+                        import shutil
+                        import shutil
+                        shutil.copyfile(temp_path, target_path)
                 
                 # Run coverage with pytest
                 cmd = [
@@ -309,7 +314,7 @@ class TestIntelligenceAnalyzer:
             # Test smell: Tests that are too long
             if line.strip().startswith('def test_'):
                 test_length = self._count_test_length(lines, i-1)
-                if test_length > 20:
+                if test_length > self.test_length_threshold:
                     finding = TestFinding(
                         issue_type=TestIssueType.TEST_SMELL,
                         severity=TestIssueSeverity.MEDIUM,

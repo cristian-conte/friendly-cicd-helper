@@ -174,6 +174,37 @@ def security_scan(diff, format, output):
     else:
         click.echo(output_content)
 
+def sanitize_diff_content(diff, max_lines=200, max_chars=10000):
+    """
+    Truncate the diff and redact common secrets.
+    """
+    import re
+    
+    # Truncate to max_lines
+    lines = diff.splitlines()
+    if len(lines) > max_lines:
+        lines = lines[:max_lines]
+        lines.append(f"... (truncated, showing first {max_lines} lines)")
+    truncated = "\n".join(lines)
+    
+    # Truncate to max_chars
+    if len(truncated) > max_chars:
+        truncated = truncated[:max_chars] + "\n... (truncated, showing first {} characters)".format(max_chars)
+    
+    # Redact common secrets (simple regexes)
+    patterns = [
+        r'(?i)(api[_-]?key\s*[:=]\s*)[A-Za-z0-9_\-]{16,}',
+        r'(?i)(secret\s*[:=]\s*)[A-Za-z0-9_\-]{8,}',
+        r'(?i)(password\s*[:=]\s*)[^\s]+',
+        r'(?i)(token\s*[:=]\s*)[A-Za-z0-9_\-]{8,}',
+    ]
+    
+    redacted = truncated
+    for pat in patterns:
+        redacted = re.sub(pat, r'\1[REDACTED]', redacted)
+    
+    return redacted
+
 @cli.command()
 @click.option('--diff', default=None, help='Path to the Git diff to analyze for test intelligence', required=True, type=str)
 @click.option('--format', default='json', help='Output format (json, text)', type=click.Choice(['json', 'text']))
@@ -208,10 +239,11 @@ def test_intelligence(diff, format, output, coverage_threshold, generate_tests):
     if generate_tests and diff_content.strip():
         try:
             # Use Vertex AI to generate test suggestions
+            sanitized_diff = sanitize_diff_content(diff_content)
             test_prompt = f"""
 Analyze this code diff and provide specific test case suggestions:
 
-{diff_content}
+{sanitized_diff}
 
 Please provide:
 1. Specific test methods with descriptive names
