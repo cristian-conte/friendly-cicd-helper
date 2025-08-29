@@ -1,4 +1,8 @@
 import click
+import logging
+import sys
+from lib.logging_config import setup_logging
+from lib.exceptions import FriendlyCICDHelperError
 
 @click.group()
 def cli():
@@ -111,7 +115,85 @@ def vertex_release_notes(diff):
     return vertex.release_notes(diff)
 
 @cli.command()
+@click.option('--repo', default=None, help='The repository to use (format: user/repo)', required=True, type=str)
+@click.option('--sha', default=None, help='The git SHA of the commit', required=True, type=str)
 @click.option('--diff', default=None, help='Path to the Git diff to scan for security issues', required=True, type=str)
+def github_security_check(repo, sha, diff):
+    """
+    Create a GitHub check run for security scan results
+    """
+    import json
+    from lib.security_analyzer import SecurityAnalyzer
+    from lib.github_api import create_security_check_run
+    
+    click.echo(f"Creating GitHub security check for repo: {repo}, sha: {sha}")
+    
+    # Read diff content
+    try:
+        with open(diff, 'r') as f:
+            diff_content = f.read()
+        click.echo(f"Successfully read diff file: {diff} ({len(diff_content)} characters)")
+    except FileNotFoundError:
+        click.echo(f"Error: Diff file '{diff}' not found", err=True)
+        return
+    except Exception as e:
+        click.echo(f"Error reading diff file: {e}", err=True)
+        return
+    
+    # Perform security scan
+    click.echo("Performing security analysis...")
+    analyzer = SecurityAnalyzer()
+    findings = analyzer.analyze_diff(diff_content)
+    click.echo(f"Security analysis completed. Found {len(findings)} findings.")
+    
+    # Create GitHub check run
+    click.echo("Creating GitHub check run...")
+    check_run = create_security_check_run(repo, sha, findings)
+    if check_run:
+        click.echo(f"✅ Security check run created successfully: {check_run.html_url}")
+    else:
+        click.echo("❌ Failed to create security check run", err=True)
+
+@cli.command()
+@click.option('--repo', default=None, help='The repository to use (format: user/repo)', required=True, type=str)
+@click.option('--sha', default=None, help='The git SHA of the commit', required=True, type=str)
+@click.option('--diff', default=None, help='Path to the Git diff to analyze for test intelligence', required=True, type=str)
+@click.option('--coverage-threshold', default=80, help='Minimum coverage threshold percentage', type=int)
+def github_test_intelligence_check(repo, sha, diff, coverage_threshold):
+    """
+    Create a GitHub check run for test intelligence results
+    """
+    import json
+    from lib.test_analyzer import TestIntelligenceAnalyzer
+    from lib.github_api import create_test_intelligence_check_run
+    
+    click.echo(f"Creating GitHub test intelligence check for repo: {repo}, sha: {sha}")
+    
+    # Read diff content
+    try:
+        with open(diff, 'r') as f:
+            diff_content = f.read()
+        click.echo(f"Successfully read diff file: {diff} ({len(diff_content)} characters)")
+    except FileNotFoundError:
+        click.echo(f"Error: Diff file '{diff}' not found", err=True)
+        return
+    except Exception as e:
+        click.echo(f"Error reading diff file: {e}", err=True)
+        return
+    
+    # Perform test intelligence analysis
+    click.echo("Performing test intelligence analysis...")
+    analyzer = TestIntelligenceAnalyzer()
+    findings = analyzer.analyze_diff(diff_content)
+    click.echo(f"Test intelligence analysis completed. Found {len(findings)} findings.")
+    
+    # Create GitHub check run
+    click.echo("Creating GitHub check run...")
+    check_run = create_test_intelligence_check_run(repo, sha, findings)
+    if check_run:
+        click.echo(f"✅ Test intelligence check run created successfully: {check_run.html_url}")
+    else:
+        click.echo("❌ Failed to create test intelligence check run", err=True)
 @click.option('--format', default='json', help='Output format (json, text)', type=click.Choice(['json', 'text']))
 @click.option('--output', default=None, help='Output file path (stdout if not specified)', type=str)
 def security_scan(diff, format, output):
@@ -274,6 +356,36 @@ Focus on functions, classes, and logic that have been added or modified.
         click.echo(f"Test intelligence report written to {output}")
     else:
         click.echo(output_content)
+
+@cli.command()
+@click.option('--diff', default=None, help='Path to the Git diff to scan for compliance issues', required=True, type=str)
+def compliance_scan(diff):
+    """
+    Scan a Git diff for compliance issues
+    """
+    from lib.compliance_analyzer import ComplianceAnalyzer
+
+    # Read diff content
+    try:
+        with open(diff, 'r') as f:
+            diff_content = f.read()
+    except FileNotFoundError:
+        click.echo(f"Error: Diff file '{diff}' not found", err=True)
+        return
+    except Exception as e:
+        click.echo(f"Error reading diff file: {e}", err=True)
+        return
+
+    # Perform compliance scan
+    analyzer = ComplianceAnalyzer()
+    findings = analyzer.analyze_diff(diff_content)
+
+    if not findings:
+        click.echo("✅ No compliance issues found in the diff.")
+    else:
+        # In the future, we can format and print findings here.
+        click.echo(f"Found {len(findings)} compliance issues.")
+
 
 def _format_security_report_text(findings):
     """Format security report as human-readable text."""
@@ -438,5 +550,17 @@ def _format_test_intelligence_report_text(findings, ai_suggestions=None, coverag
     
     return "\n".join(output)
 
+
 if __name__ == '__main__':
-    cli()
+    setup_logging()
+    logger = logging.getLogger(__name__)
+    try:
+        cli()
+    except FriendlyCICDHelperError as e:
+        logger.error(f"A known application error occurred: {e}", exc_info=True)
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        logger.critical(f"An unexpected error occurred: {e}", exc_info=True)
+        click.echo(f"An unexpected error occurred: {e}", err=True)
+        sys.exit(1)
