@@ -1,7 +1,7 @@
 import os
 import sys
 import vertexai
-from vertexai.generative_models import GenerativeModel
+from vertexai.generative_models import _generative_models
 
 if os.environ.get("VERTEX_GCP_PROJECT")==None:
     print("Please set VERTEX_GCP_PROJECT environment variable", file=sys.stderr)
