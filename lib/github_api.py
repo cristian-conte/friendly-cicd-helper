@@ -12,62 +12,65 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from github import Github, Auth
-import os
-import sys
+from github import Github, Auth, GithubException
+import logging
+from lib.config import GITHUB_TOKEN
+from lib.exceptions import APIError, ConfigurationError
+
+logger = logging.getLogger(__name__)
 
 def issue_comment(repo_path, issue_number, comment):
     """
     Post a comment to an existing GitHub issue in the specified repo.
     """
 
-    token = os.getenv('GITHUB_TOKEN')
-    if token is None:
-        print('Please set the GITHUB_TOKEN environment variable.')
-        return
-
-    auth = Auth.Token(token)
-    client = Github(auth=auth)
-    repo = client.get_repo(repo_path)
-    issue = repo.get_issue(number=issue_number)
-    issue_comment = issue.create_comment(comment)
-    print(f'Posted a comment to GitHub issue. Link: {issue_comment.html_url}')
+    if not GITHUB_TOKEN:
+        raise ConfigurationError("GITHUB_TOKEN environment variable not set.")
+    try:
+        auth = Auth.Token(GITHUB_TOKEN)
+        client = Github(auth=auth)
+        repo = client.get_repo(repo_path)
+        issue = repo.get_issue(number=issue_number)
+        issue_comment = issue.create_comment(comment)
+        logger.info(f'Posted a comment to GitHub issue. Link: {issue_comment.html_url}')
+    except GithubException as e:
+        raise APIError(f"Failed to post comment to GitHub issue: {e}") from e
 
 def pull_request_comment(repo_path, pr_number, comment):
     """
     Post a comment to a GitHub pull request in the specified repo.
     """
-    token = os.getenv('GITHUB_TOKEN')
-    if token is None:
-        print('Please set the GITHUB_TOKEN environment variable.')
-        return
-    auth = Auth.Token(token)
-    client = Github(auth=auth)
-    repo = client.get_repo(repo_path)
-    pr = repo.get_pull(number=pr_number)
-    pr_comment = pr.create_issue_comment(comment)
-    print(f'Posted a comment to GitHub PR. Link: {pr_comment.html_url}')
+    if not GITHUB_TOKEN:
+        raise ConfigurationError("GITHUB_TOKEN environment variable not set.")
+    try:
+        auth = Auth.Token(GITHUB_TOKEN)
+        client = Github(auth=auth)
+        repo = client.get_repo(repo_path)
+        pr = repo.get_pull(number=pr_number)
+        pr_comment = pr.create_issue_comment(comment)
+        logger.info(f'Posted a comment to GitHub PR. Link: {pr_comment.html_url}')
+    except GithubException as e:
+        raise APIError(f"Failed to post comment to GitHub PR: {e}") from e
 
 def get_latest_pull_request(repo_path, source_branch):
     """
     Find the latest open pull request for a given source branch.
     """
-    import sys
-    token = os.getenv('GITHUB_TOKEN')
-    if token is None:
-        print('Please set the GITHUB_TOKEN environment variable.')
+    if not GITHUB_TOKEN:
+        raise ConfigurationError("GITHUB_TOKEN environment variable not set.")
+    try:
+        auth = Auth.Token(GITHUB_TOKEN)
+        client = Github(auth=auth)
+        repo = client.get_repo(repo_path)
+        pulls = repo.get_pulls(state='open', sort='created')
+        for pr in pulls:
+            if pr.head.ref == source_branch:
+                logger.info(f'Latest pull request for {source_branch} is {pr.number}')
+                return pr.number
+        logger.info(f'No pull requests found for {source_branch}')
         return None
-    auth = Auth.Token(token)
-    client = Github(auth=auth)
-    repo = client.get_repo(repo_path)
-    pulls = repo.get_pulls(state='open', sort='created')
-    for pr in pulls:
-        if pr.head.ref == source_branch:
-            print(f'Latest pull request for {source_branch} is {pr.number}', file=sys.stderr)
-            print(pr.number)
-            return pr.number
-    print(f'No pull requests found for {source_branch}', file=sys.stderr)
-    return None
+    except GithubException as e:
+        raise APIError(f"Failed to get latest pull request: {e}") from e
 
 
 def create_check_run(repo_path, head_sha, name, status, conclusion=None, title=None, summary=None, details_url=None, annotations=None):
@@ -85,22 +88,19 @@ def create_check_run(repo_path, head_sha, name, status, conclusion=None, title=N
         details_url: URL for more details
         annotations: List of annotation objects
     """
-    token = os.getenv('GITHUB_TOKEN')
-    if token is None:
-        print('Please set the GITHUB_TOKEN environment variable.')
-        return None
-        
-    print(f"Debug: Creating check run for {repo_path}, SHA: {head_sha}, Name: {name}")
+    if not GITHUB_TOKEN:
+        raise ConfigurationError("GITHUB_TOKEN environment variable not set.")
     
-    auth = Auth.Token(token)
+    logger.debug(f"Creating check run for {repo_path}, SHA: {head_sha}, Name: {name}")
+    
+    auth = Auth.Token(GITHUB_TOKEN)
     client = Github(auth=auth)
     
     try:
         repo = client.get_repo(repo_path)
-        print(f"Debug: Successfully connected to repository {repo_path}")
-    except Exception as e:
-        print(f'Failed to access repository {repo_path}: {e}', file=sys.stderr)
-        return None
+        logger.debug(f"Successfully connected to repository {repo_path}")
+    except GithubException as e:
+        raise APIError(f'Failed to access repository {repo_path}: {e}') from e
     
     output = {}
     if title:
@@ -123,18 +123,16 @@ def create_check_run(repo_path, head_sha, name, status, conclusion=None, title=N
     if output:
         check_run_data['output'] = output
     
-    print(f"Debug: Check run data: {check_run_data}")
+    logger.debug(f"Check run data: {check_run_data}")
     
     try:
         check_run = repo.create_check_run(**check_run_data)
-        print(f'Created GitHub check run: {check_run.html_url}')
+        logger.info(f'Created GitHub check run: {check_run.html_url}')
         return check_run
-    except Exception as e:
-        print(f'Failed to create check run: {e}', file=sys.stderr)
-        # Check if it's a permissions issue
+    except GithubException as e:
         if "403" in str(e) or "permission" in str(e).lower():
-            print("This appears to be a permissions issue. Make sure your GitHub token has 'checks:write' permission.", file=sys.stderr)
-        return None
+            raise APIError("Failed to create check run due to permissions issue. Make sure your GitHub token has 'checks:write' permission.") from e
+        raise APIError(f'Failed to create check run: {e}') from e
 
 
 def create_security_check_run(repo_path, head_sha, findings):

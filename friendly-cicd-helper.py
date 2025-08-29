@@ -1,4 +1,8 @@
 import click
+import logging
+import sys
+from lib.logging_config import setup_logging
+from lib.exceptions import FriendlyCICDHelperError
 
 @click.group()
 def cli():
@@ -353,6 +357,36 @@ Focus on functions, classes, and logic that have been added or modified.
     else:
         click.echo(output_content)
 
+@cli.command()
+@click.option('--diff', default=None, help='Path to the Git diff to scan for compliance issues', required=True, type=str)
+def compliance_scan(diff):
+    """
+    Scan a Git diff for compliance issues
+    """
+    from lib.compliance_analyzer import ComplianceAnalyzer
+
+    # Read diff content
+    try:
+        with open(diff, 'r') as f:
+            diff_content = f.read()
+    except FileNotFoundError:
+        click.echo(f"Error: Diff file '{diff}' not found", err=True)
+        return
+    except Exception as e:
+        click.echo(f"Error reading diff file: {e}", err=True)
+        return
+
+    # Perform compliance scan
+    analyzer = ComplianceAnalyzer()
+    findings = analyzer.analyze_diff(diff_content)
+
+    if not findings:
+        click.echo("✅ No compliance issues found in the diff.")
+    else:
+        # In the future, we can format and print findings here.
+        click.echo(f"Found {len(findings)} compliance issues.")
+
+
 def _format_security_report_text(findings):
     """Format security report as human-readable text."""
     if not findings:
@@ -518,4 +552,15 @@ def _format_test_intelligence_report_text(findings, ai_suggestions=None, coverag
 
 
 if __name__ == '__main__':
-    cli()
+    setup_logging()
+    logger = logging.getLogger(__name__)
+    try:
+        cli()
+    except FriendlyCICDHelperError as e:
+        logger.error(f"A known application error occurred: {e}", exc_info=True)
+        click.echo(f"Error: {e}", err=True)
+        sys.exit(1)
+    except Exception as e:
+        logger.critical(f"An unexpected error occurred: {e}", exc_info=True)
+        click.echo(f"An unexpected error occurred: {e}", err=True)
+        sys.exit(1)

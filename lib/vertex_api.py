@@ -1,19 +1,21 @@
 import os
-import sys
+import logging
 import vertexai
-from vertexai.generative_models import GenerativeModel
+from typing import cast
+from vertexai.generative_models import GenerativeModel, GenerationResponse
+from lib.config import VERTEX_GCP_PROJECT, VERTEX_LOCATION, VERTEX_MODEL_NAME
+from lib.exceptions import APIError, ConfigurationError
 
-if os.environ.get("VERTEX_GCP_PROJECT")==None:
-    print("Please set VERTEX_GCP_PROJECT environment variable", file=sys.stderr)
-    sys.exit(1)
+logger = logging.getLogger(__name__)
 
-vertex_location = "us-central1"
-if os.environ.get("VERTEX_LOCATION")!=None:
-    vertex_location = os.environ.get("VERTEX_LOCATION")
+if not VERTEX_GCP_PROJECT:
+    raise ConfigurationError("VERTEX_GCP_PROJECT environment variable not set.")
 
-vertexai.init(project=os.environ.get("VERTEX_GCP_PROJECT"), location=vertex_location)
-
-model = GenerativeModel("gemini-2.5-flash")
+try:
+    vertexai.init(project=VERTEX_GCP_PROJECT, location=VERTEX_LOCATION)
+    model = GenerativeModel(VERTEX_MODEL_NAME)
+except Exception as e:
+    raise APIError(f"Failed to initialize Vertex AI: {e}") from e
 
 generation_config = {
     "temperature": 0,
@@ -24,8 +26,7 @@ def load_diff(diff_path):
     Load a Git diff from a file.
     """
     if not os.path.exists(diff_path):
-        print(f"{diff_path} does not exist", file=sys.stderr)
-        sys.exit(1)
+        raise FileNotFoundError(f"{diff_path} does not exist")
     with open(diff_path, 'r') as file:
         data = file.read()
     return f"""
@@ -53,7 +54,7 @@ def code_summary(diff_path):
     Generate a code summary based on a Git diff.
     """
 
-    response = model.generate_content(
+    response = cast(GenerationResponse, model.generate_content(
         f"""
         **Persona:** You are a principal software engineer acting as a tech lead. Your goal is to provide a clear, high-level overview of a code change for your team.
 
@@ -71,8 +72,9 @@ def code_summary(diff_path):
 ${load_diff(diff_path)}
 
         """,
-        generation_config=generation_config
-    )
+        generation_config=generation_config,
+        stream=False
+    ))
     print(response.text.strip())
     return response.text
 
@@ -82,7 +84,7 @@ def code_review(diff_path):
     Generate a code review based on a Git diff.
     """
 
-    response = model.generate_content(
+    response = cast(GenerationResponse, model.generate_content(
         f"""
 **Persona:** You are a meticulous and collaborative senior software engineer performing a code review. Your goal is to provide constructive feedback to help your peers improve their code quality, maintainability, and reliability.
 
@@ -104,8 +106,9 @@ def code_review(diff_path):
 ${load_diff(diff_path)}
 
         """,
-        generation_config=generation_config
-    )
+        generation_config=generation_config,
+        stream=False
+    ))
     print(response.text.strip())
     return response.text
 
@@ -114,7 +117,7 @@ def release_notes(diff_path):
     Generate release notes based on a Git diff in unified format.
     """
 
-    response = model.generate_content(
+    response = cast(GenerationResponse, model.generate_content(
         f"""
 **Persona:** You are a professional technical writer preparing release notes for a software product. Your audience includes both technical and non-technical stakeholders.
 
@@ -138,8 +141,9 @@ def release_notes(diff_path):
 
 ${load_diff(diff_path)}
         """,
-        generation_config=generation_config
-    )
+        generation_config=generation_config,
+        stream=False
+    ))
     print(response.text.strip())
     return response.text
 
@@ -150,11 +154,8 @@ def generate_content_from_text(prompt_text):
     Used for AI-powered test suggestions and other text-based prompts.
     """
     try:
-        response = model.generate_content(
-            prompt_text,
-            generation_config=generation_config
-        )
+        response = cast(GenerationResponse, model.generate_content(prompt_text, generation_config=generation_config, stream=False))
+        logger.info("Successfully generated content from Vertex AI.")
         return response.text.strip()
     except Exception as e:
-        print(f"Error generating content: {e}", file=sys.stderr)
-        return None
+        raise APIError(f"Error generating content from Vertex AI: {e}") from e

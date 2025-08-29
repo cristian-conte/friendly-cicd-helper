@@ -17,6 +17,7 @@ import tempfile
 import shutil
 from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
+from lib.utils import extract_files_from_diff
 from enum import Enum
 
 
@@ -80,7 +81,7 @@ class TestIntelligenceAnalyzer:
         
         try:
             # Extract file content from diff for analysis
-            temp_files = self._extract_files_from_diff(diff_content)
+            temp_files = extract_files_from_diff(diff_content)
             
             if not temp_files:
                 self.logger.info("No files to analyze in diff")
@@ -105,60 +106,6 @@ class TestIntelligenceAnalyzer:
             self.logger.error(f"Error during test intelligence analysis: {e}")
             
         return findings
-    
-    def _extract_files_from_diff(self, diff_content: str) -> Dict[str, str]:
-        """Extract file content from git diff for analysis."""
-        temp_files = {}
-        current_file = None
-        current_content = []
-        in_file_content = False
-        
-        for line in diff_content.split('\n'):
-            if line.startswith('diff --git'):
-                # Save previous file if exists
-                if current_file and current_content:
-                    temp_files[current_file] = self._save_temp_file(current_file, '\n'.join(current_content))
-                    current_content = []
-
-                # Extract file path
-                parts = line.split(' ')
-                if len(parts) >= 4:
-                    current_file = parts[3][2:]  # Remove 'b/' prefix
-                in_file_content = False
-                    
-            elif line.startswith('+++'):
-                continue
-            elif line.startswith('---'):
-                continue
-            elif line.startswith('new file mode') or line.startswith('index '):
-                continue
-            elif line.startswith('@@'):
-                in_file_content = True
-                continue
-            elif in_file_content:
-                if line.startswith('+') and not line.startswith('+++'):
-                    # Add new line content (remove + prefix)
-                    current_content.append(line[1:])
-                elif line.startswith(' '):
-                    # Add context lines (remove space prefix)
-                    current_content.append(line[1:])
-                # Lines starting with '-' are removed from the original, so they should not be in the new file content.
-                # Any other lines (e.g., empty lines that are not context, or other diff metadata) should also be excluded.
-        
-        # Save last file
-        if current_file and current_content:
-            temp_files[current_file] = self._save_temp_file(current_file, '\n'.join(current_content))
-            
-        return temp_files
-    
-    def _save_temp_file(self, file_path: str, content: str) -> str:
-        """Save content to a temporary file maintaining the original file extension."""
-        _, ext = os.path.splitext(file_path)
-        
-        # Create temporary file with same extension
-        with tempfile.NamedTemporaryFile(mode='w', suffix=ext, delete=False) as f:
-            f.write(content)
-            return f.name
     
     def _run_coverage_analysis(self, temp_files: Dict[str, str]) -> List[TestFinding]:
         """Run coverage analysis on Python files."""
@@ -492,7 +439,7 @@ class TestIntelligenceAnalyzer:
         # Calculate average coverage if available
         coverage_findings = [f for f in findings if f.coverage_percentage is not None]
         if coverage_findings:
-            summary["average_coverage"] = sum(f.coverage_percentage for f in coverage_findings) / len(coverage_findings)
+            summary["average_coverage"] = sum(f.coverage_percentage for f in coverage_findings if f.coverage_percentage is not None) / len(coverage_findings)
         
         report = {
             "summary": summary,
