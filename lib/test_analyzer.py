@@ -106,6 +106,11 @@ class TestIntelligenceAnalyzer:
             self.logger.error(f"Error during test intelligence analysis: {e}")
             
         return findings
+
+    # Backwards-compatible helper for tests
+    def _extract_files_from_diff(self, diff_content: str):
+        """Proxy to shared utils for extracting files from diff."""
+        return extract_files_from_diff(diff_content)
     
     def _run_coverage_analysis(self, temp_files: Dict[str, str]) -> List[TestFinding]:
         """Run coverage analysis on Python files."""

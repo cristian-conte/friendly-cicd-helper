@@ -24,6 +24,22 @@ def github_issue_comment(repo, issue, comment):
 
     github.issue_comment(repo, issue, comment)
 
+# Backwards-compatible alias matching docs: `github-comment`
+@cli.command(name='github-comment')
+@click.option('--repo', default=None, help='The repository to use (format: user/repo)', required=True, type=str)
+@click.option('--issue', default=None, help='The issue number', required=True, type=int)
+@click.option('--comment', default=None, help='The comment to post', required=False, type=str)
+def github_comment_alias(repo, issue, comment):
+    """
+    Alias for posting a comment to a GitHub issue (matches docs usage `github-comment`).
+    """
+    import lib.github_api as github
+    if comment is None:
+        click.echo('Reading the comment from stdin. Press Ctrl+D when done.')
+        std_in = click.get_text_stream('stdin')
+        comment = std_in.read()
+    github.issue_comment(repo, issue, comment)
+
 # Add GitHub pull request comment command
 @cli.command()
 @click.option('--repo', default=None, help='The repository to use (format: user/repo)', required=True, type=str)
@@ -194,6 +210,8 @@ def github_test_intelligence_check(repo, sha, diff, coverage_threshold):
         click.echo(f"✅ Test intelligence check run created successfully: {check_run.html_url}")
     else:
         click.echo("❌ Failed to create test intelligence check run", err=True)
+@cli.command()
+@click.option('--diff', default=None, help='Path to the Git diff to scan for security vulnerabilities', required=True, type=str)
 @click.option('--format', default='json', help='Output format (json, text)', type=click.Choice(['json', 'text']))
 @click.option('--output', default=None, help='Output file path (stdout if not specified)', type=str)
 def security_scan(diff, format, output):
@@ -299,7 +317,6 @@ def test_intelligence(diff, format, output, coverage_threshold, generate_tests):
     """
     import json
     from lib.test_analyzer import TestIntelligenceAnalyzer
-    from lib.vertex_api import generate_content_from_text
     
     # Read diff content
     try:
@@ -320,6 +337,8 @@ def test_intelligence(diff, format, output, coverage_threshold, generate_tests):
     ai_suggestions = []
     if generate_tests and diff_content.strip():
         try:
+            # Deferred import to avoid requiring Vertex config when not used
+            from lib.vertex_api import generate_content_from_text
             # Use Vertex AI to generate test suggestions
             sanitized_diff = sanitize_diff_content(diff_content)
             test_prompt = f"""
@@ -359,10 +378,13 @@ Focus on functions, classes, and logic that have been added or modified.
 
 @cli.command()
 @click.option('--diff', default=None, help='Path to the Git diff to scan for compliance issues', required=True, type=str)
-def compliance_scan(diff):
+@click.option('--format', default='json', help='Output format (json, text)', type=click.Choice(['json', 'text']))
+@click.option('--output', default=None, help='Output file path (stdout if not specified)', type=str)
+def compliance_scan(diff, format, output):
     """
     Scan a Git diff for compliance issues
     """
+    import json
     from lib.compliance_analyzer import ComplianceAnalyzer
 
     # Read diff content
@@ -375,16 +397,32 @@ def compliance_scan(diff):
     except Exception as e:
         click.echo(f"Error reading diff file: {e}", err=True)
         return
-
+    
     # Perform compliance scan
     analyzer = ComplianceAnalyzer()
     findings = analyzer.analyze_diff(diff_content)
 
-    if not findings:
-        click.echo("✅ No compliance issues found in the diff.")
+    # Format output
+    if format == 'json':
+        try:
+            report = analyzer.generate_report(findings)
+        except Exception:
+            # Fallback simple JSON if analyzer doesn't implement report
+            report = {
+                "findings": [f.__dict__ for f in findings],
+                "summary": {"total_findings": len(findings)}
+            }
+        output_content = json.dumps(report, indent=2)
     else:
-        # In the future, we can format and print findings here.
-        click.echo(f"Found {len(findings)} compliance issues.")
+        output_content = _format_compliance_report_text(findings)
+
+    # Write output
+    if output:
+        with open(output, 'w') as f:
+            f.write(output_content)
+        click.echo(f"Compliance report written to {output}")
+    else:
+        click.echo(output_content)
 
 
 def _format_security_report_text(findings):
@@ -548,6 +586,40 @@ def _format_test_intelligence_report_text(findings, ai_suggestions=None, coverag
             if len(quality_issues) > 3:
                 output.append(f"  ... and {len(quality_issues) - 3} more issues")
     
+    return "\n".join(output)
+
+def _format_compliance_report_text(findings):
+    """Format compliance report as human-readable text."""
+    if not findings:
+        return "✅ No compliance issues found in the diff."
+
+    output = []
+    output.append("📏 COMPLIANCE SCAN REPORT")
+    output.append("=" * 50)
+    output.append(f"Total findings: {len(findings)}")
+
+    # Count by severity (best effort if enum present)
+    try:
+        critical = len([f for f in findings if getattr(f.severity, 'value', str(getattr(f.severity, 'name', f.severity))).lower() == 'critical'])
+        high = len([f for f in findings if getattr(f.severity, 'value', str(getattr(f.severity, 'name', f.severity))).lower() == 'high'])
+        medium = len([f for f in findings if getattr(f.severity, 'value', str(getattr(f.severity, 'name', f.severity))).lower() == 'medium'])
+        low = len([f for f in findings if getattr(f.severity, 'value', str(getattr(f.severity, 'name', f.severity))).lower() == 'low'])
+        output.append(f"Critical: {critical} | High: {high} | Medium: {medium} | Low: {low}")
+        output.append("")
+    except Exception:
+        output.append("")
+
+    for i, finding in enumerate(findings, 1):
+        output.append(f"{i}. {finding.title}")
+        output.append(f"   File: {finding.file_path}:{finding.line_number}")
+        sev = getattr(finding.severity, 'value', str(getattr(finding.severity, 'name', finding.severity))).upper()
+        output.append(f"   Severity: {sev}")
+        output.append(f"   Description: {finding.description}")
+        if getattr(finding, 'code_snippet', ''):
+            output.append(f"   Code: {finding.code_snippet}")
+        output.append(f"   Recommendation: {finding.recommendation}")
+        output.append("")
+
     return "\n".join(output)
 
 
