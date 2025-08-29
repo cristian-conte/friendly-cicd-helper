@@ -11,3 +11,4 @@ semgrep==1.45.0
 coverage==7.4.0
 pytest==8.0.0
 mutmut==2.4.5
+checkov==3.2.0

@@ -1,0 +1,35 @@
+[mcpServers.context7]
+command = "npx"
+args = ["-y", "@upstash/context7-mcp"]
+env = { DEFAULT_MINIMUM_TOKENS = "" }
+alwaysAllow = ["resolve-library-id", "get-library-docs"]
+
+[mcpServers.sequentialthinking]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-sequential-thinking"]
+alwaysAllow = ["sequentialthinking"]
+
+[mcpServers.serena]
+command = "/Users/cristian/.local/bin/uvx"
+args = [
+  "--from",
+  "git+https://github.com/oraios/serena",
+  "serena",
+  "start-mcp-server",
+  "--context",
+  "ide-assistant"
+]
+alwaysAllow = [
+  "list_dir",
+  "find_file",
+  "search_for_pattern",
+  "get_symbols_overview",
+  "find_symbol",
+  "find_referencing_symbols",
+  "think_about_whether_you_are_done",
+  "think_about_task_adherence",
+  "think_about_collected_information",
+  "onboarding",
+  "check_onboarding_performed",
+  "read_memory"
+]

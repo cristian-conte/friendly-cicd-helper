@@ -122,7 +122,6 @@ credentials.json
 # .serena/project.yml 
 
 # Security tool output files
-.bandit
 bandit-report.json
 security-report.json
 
