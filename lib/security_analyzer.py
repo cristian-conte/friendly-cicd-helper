@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Dict, List, Optional
 
+from lib.utils import extract_files_from_diff
+
 
 class Severity(Enum):
     """Security vulnerability severity levels."""
@@ -68,7 +70,7 @@ class SecurityAnalyzer:
         
         try:
             # Extract file content from diff for analysis
-            temp_files = self._extract_files_from_diff(diff_content)
+            temp_files = extract_files_from_diff(diff_content)
             
             if not temp_files:
                 self.logger.info("No files to analyze in diff")
@@ -94,68 +96,6 @@ class SecurityAnalyzer:
             self.logger.error(f"Error during security analysis: {e}")
             
         return findings
-    
-    def _extract_files_from_diff(self, diff_content: str) -> Dict[str, str]:
-        """Extract file content from git diff for analysis."""
-        import tempfile
-        import os
-        
-        temp_files = {}
-        current_file = None
-        current_content = []
-        in_file_content = False
-        
-        for line in diff_content.split('\n'):
-            if line.startswith('diff --git'):
-                # Save previous file if exists
-                if current_file and current_content:
-                    temp_files[current_file] = self._save_temp_file(current_file, '\n'.join(current_content))
-                    current_content = []
-                
-                # Extract file path
-                parts = line.split(' ')
-                if len(parts) >= 4:
-                    current_file = parts[3][2:]  # Remove 'b/' prefix
-                in_file_content = False
-                    
-            elif line.startswith('+++'):
-                continue
-            elif line.startswith('---'):
-                continue
-            elif line.startswith('new file mode') or line.startswith('index '):
-                continue
-            elif line.startswith('@@'):
-                in_file_content = True
-                continue
-            elif in_file_content:
-                if line.startswith('+') and not line.startswith('+++'):
-                    # Add new line content (remove + prefix)
-                    current_content.append(line[1:])
-                elif line.startswith(' '):
-                    # Add context lines (remove space prefix)
-                    current_content.append(line[1:])
-                elif not line.startswith('-'):
-                    # Add other lines as-is (but skip deletion lines)
-                    current_content.append(line)
-        
-        # Save last file
-        if current_file and current_content:
-            temp_files[current_file] = self._save_temp_file(current_file, '\n'.join(current_content))
-            
-        return temp_files
-    
-    def _save_temp_file(self, file_path: str, content: str) -> str:
-        """Save content to a temporary file maintaining the original file extension."""
-        import tempfile
-        import os
-        
-        # Get file extension
-        _, ext = os.path.splitext(file_path)
-        
-        # Create temporary file with same extension
-        with tempfile.NamedTemporaryFile(mode='w', suffix=ext, delete=False) as f:
-            f.write(content)
-            return f.name
     
     def _run_bandit(self, temp_files: Dict[str, str]) -> List[SecurityFinding]:
         """Run bandit security analysis on Python files."""
