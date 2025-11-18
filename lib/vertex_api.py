@@ -19,9 +19,14 @@ generation_config = {
     "temperature": 0,
 }
 
-def load_diff(diff_path):
-    """
-    Load a Git diff from a file.
+def load_diff(diff_path: str) -> str:
+    """Loads a Git diff from a file and formats it for analysis.
+
+    Args:
+        diff_path: The path to the Git diff file.
+
+    Returns:
+        The formatted diff content as a string.
     """
     if not os.path.exists(diff_path):
         print(f"{diff_path} does not exist", file=sys.stderr)
@@ -48,11 +53,15 @@ ${data}
 ======= END Git Diff =======
     """
 
-def code_summary(diff_path):
-    """
-    Generate a code summary based on a Git diff.
-    """
+def code_summary(diff_path: str) -> str:
+    """Generates a code summary from a Git diff.
 
+    Args:
+        diff_path: The path to the Git diff file.
+
+    Returns:
+        The generated code summary as a string.
+    """
     response = model.generate_content(
         f"""
         **Persona:** You are a principal software engineer acting as a tech lead. Your goal is to provide a clear, high-level overview of a code change for your team.
@@ -77,11 +86,15 @@ ${load_diff(diff_path)}
     return response.text
 
 
-def code_review(diff_path):
-    """
-    Generate a code review based on a Git diff.
-    """
+def code_review(diff_path: str) -> str:
+    """Generates a code review from a Git diff.
 
+    Args:
+        diff_path: The path to the Git diff file.
+
+    Returns:
+        The generated code review as a string.
+    """
     response = model.generate_content(
         f"""
 **Persona:** You are a meticulous and collaborative senior software engineer performing a code review. Your goal is to provide constructive feedback to help your peers improve their code quality, maintainability, and reliability.
@@ -109,11 +122,15 @@ ${load_diff(diff_path)}
     print(response.text.strip())
     return response.text
 
-def release_notes(diff_path):
-    """
-    Generate release notes based on a Git diff in unified format.
-    """
+def release_notes(diff_path: str) -> str:
+    """Generates release notes from a Git diff.
 
+    Args:
+        diff_path: The path to the Git diff file.
+
+    Returns:
+        The generated release notes as a string.
+    """
     response = model.generate_content(
         f"""
 **Persona:** You are a professional technical writer preparing release notes for a software product. Your audience includes both technical and non-technical stakeholders.
@@ -144,10 +161,14 @@ ${load_diff(diff_path)}
     return response.text
 
 
-def generate_content_from_text(prompt_text):
-    """
-    Generate content from a text prompt directly (not a file path).
-    Used for AI-powered test suggestions and other text-based prompts.
+def generate_content_from_text(prompt_text: str) -> str | None:
+    """Generates content from a text prompt.
+
+    Args:
+        prompt_text: The text prompt to generate content from.
+
+    Returns:
+        The generated content as a string, or None if an error occurs.
     """
     try:
         response = model.generate_content(

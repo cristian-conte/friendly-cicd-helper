@@ -1,78 +1,100 @@
 # Friendly CI/CD Helper
 
-`friendly-cicd-helper` is a small demo project for how to use Vertex AI in common CI/CD tasks.
+`friendly-cicd-helper` is a powerful tool that leverages Vertex AI to streamline common CI/CD tasks. By analyzing code changes in the form of a Git diff, it automatically generates insightful summaries, constructive code reviews, and clear release notes.
 
-It uses Vertex AI to analyze code changes (in the form of a GitDiff) and generate the following outputs:
-- Summary of the changes to help speed up a MR/PR review
-- PR/MR comments for code changes to provide initial feedback to the author
-- Release Notes for changes for code changes
+## Key Features
 
-To integrate directly with a PR/MR flow it uses the Gitlab or GitHub API to:
-- Comment on an issue
-- Comment on a PR or MR
-
-The firendly-cicd-helper can be used in the following ways:
-- as a standalone python application
-- as a container image 
-- in a container-based CI/CD pipeline such as Cloud Build
+- **Automated Code Summaries**: Get a high-level overview of pull requests and merge requests, making code reviews faster and more efficient.
+- **AI-Powered Code Reviews**: Receive instant feedback on your code, identifying potential issues and suggesting improvements to enhance code quality.
+- **Effortless Release Notes**: Automatically generate well-structured release notes from your commit history, saving you time and effort.
+- **Seamless Integration**: Easily integrate with GitHub and GitLab to post comments on issues, pull requests, and merge requests.
 
 ## Getting Started
 
-To use the `friendly-cicd-helper` as a container image you'll need to build and run the image:
+You can use `friendly-cicd-helper` as a standalone Python application, a container image, or within a CI/CD pipeline.
+
+### Prerequisites
+
+- Python 3.8+
+- [Google Cloud SDK](https://cloud.google.com/sdk/docs/install)
+- [Docker](https://docs.docker.com/get-docker/)
+
+### Installation
+
+1.  **Clone the repository:**
+    ```sh
+    git clone https://github.com/GoogleCloudPlatform/friendly-cicd-helper.git
+    cd friendly-cicd-helper
+    ```
+
+2.  **Install dependencies:**
+    ```sh
+    pip install -r requirements.txt
+    ```
+
+### Configuration
+
+Before you can use `friendly-cicd-helper`, you need to set up the following environment variables:
+
+- `GITHUB_TOKEN`: A GitHub personal access token with `repo` scope.
+- `GITLAB_TOKEN`: A GitLab personal access token with `api` scope.
+- `VERTEX_GCP_PROJECT`: The ID of your Google Cloud project.
+- `VERTEX_LOCATION`: The Google Cloud region where you want to run Vertex AI jobs (e.g., `us-central1`).
+
+### Usage
+
+The `friendly-cicd-helper` provides a command-line interface (CLI) for easy interaction.
+
+**Container Image**
+
+1.  **Build the Docker image:**
+    ```sh
+    docker build . -t friendly-cicd-helper
+    ```
+
+2.  **Run the container:**
+    ```sh
+    docker run -e GITHUB_TOKEN -e GITLAB_TOKEN -e VERTEX_GCP_PROJECT -e VERTEX_LOCATION friendly-cicd-helper --help
+    ```
+
+**Python Application**
 
 ```sh
-docker build . -t friendly-cicd-helper
-docker run friendly-cicd-helper --help
-```
-
-To use the `friendly-cicd-helper` as a python application you'll need to install the dependencies and then run the application:
-
-```sh
-pip install -r requirements.txt
 python friendly-cicd-helper.py --help
 ```
 
-To use the `friendly-cicd-helper` in a Cloud Build pipeline you'll need to build the image and then submit a pipeline that uses it.
+**Cloud Build Pipeline**
 
-```sh
-# adapt these with your values
-PROJECT_ID=<your-project-id>
-REGION=europe-west1
-REPO_NAME=default
-IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/friendly-cicd-helper"
+1.  **Build the image and submit the pipeline:**
+    ```sh
+    # adapt these with your values
+    PROJECT_ID=<your-project-id>
+    REGION=europe-west1
+    REPO_NAME=default
+    IMAGE_PATH="$REGION-docker.pkg.dev/$PROJECT_ID/$REPO_NAME/friendly-cicd-helper"
 
-gcloud builds submit . --substitutions "_IMAGE_PATH=$IMAGE_PATH"
-gcloud builds submit --config ./docs/demo-pipeline/print-cli-help.yaml --substitutions "_IMAGE_PATH=$IMAGE_PATH"
-```
+    gcloud builds submit . --substitutions "_IMAGE_PATH=$IMAGE_PATH"
+    gcloud builds submit --config ./docs/demo-pipeline/print-cli-help.yaml --substitutions "_IMAGE_PATH=$IMAGE_PATH"
+    ```
 
-In all of these cases you should see the following help output:
+## CLI Commands
 
-```txt
-Usage: friendly-cicd-helper.py [OPTIONS] COMMAND [ARGS]...
+- `github-comment`: Post a comment to a GitHub issue.
+- `gitlab-comment`: Post a comment to a GitLab issue.
+- `gitlab-mergerequest`: Find the most recent merge request for a given source branch.
+- `vertex-code-review`: Generate a code review from a Git diff.
+- `vertex-code-summary`: Generate a human-readable summary of a Git diff.
+- `vertex-release-notes`: Generate release notes from a Git diff.
 
-Options:
-  --help  Show this message and exit.
-
-Commands:
-  github-comment        This command will post a comment to a GitHub issue.
-  gitlab-comment        This command will post a comment to a Gitlab issue.
-  gitlab-mergerequest   Find the most recent Merge Request for a given...
-  vertex-code-review    Review on a Git Diff
-  vertex-code-summary   Write a human-readable summary of a Git Diff
-  vertex-release-notes  Write release notes for a Git Diff
-```
-
-## How to use the `friendly-cicd-helper`
-
-Detailed instructions for how to use the `friendly-cicd-helper` are located in the [docs](./docs/USAGE.md) folder.
+For detailed instructions on how to use each command, refer to the [official documentation](./docs/USAGE.md).
 
 ## Contributing
 
-Contributions welcome! See the [Contributing Guide](CONTRIBUTING.md).
+We welcome contributions! Please see the [Contributing Guide](CONTRIBUTING.md) for more details.
 
-## Getting help
+## Support
 
-Please use the [issues page](https://github.com/GoogleCloudPlatform/friendly-cicd-helper/issues) to provide feedback or submit a bug report.
+If you encounter any issues or have feedback, please open an issue on the [issues page](https://github.com/GoogleCloudPlatform/friendly-cicd-helper/issues).
 
 ## Disclaimer
 

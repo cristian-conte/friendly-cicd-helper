@@ -34,7 +34,20 @@ class VulnerabilityType(Enum):
 
 @dataclass
 class SecurityFinding:
-    """Represents a security vulnerability finding."""
+    """Represents a single security vulnerability finding.
+
+    Attributes:
+        vulnerability_type: The type of vulnerability.
+        severity: The severity level of the finding.
+        confidence: The confidence level of the finding (0.0 to 1.0).
+        title: A brief title for the finding.
+        description: A detailed description of the vulnerability.
+        file_path: The path to the file where the vulnerability was found.
+        line_number: The line number of the vulnerability.
+        code_snippet: A snippet of the code containing the vulnerability.
+        recommendation: A recommendation on how to fix the vulnerability.
+        cwe_id: The CWE ID of the vulnerability, if available.
+    """
     vulnerability_type: VulnerabilityType
     severity: Severity
     confidence: float  # 0.0 to 1.0
@@ -48,21 +61,24 @@ class SecurityFinding:
 
 
 class SecurityAnalyzer:
-    """Security analyzer using industry-standard tools (bandit, safety, semgrep)."""
-    
+    """Analyzes code for security vulnerabilities using various tools.
+
+    This class scans code for common security issues using a combination of
+    static analysis tools like bandit, safety, and semgrep.
+    """
+
     def __init__(self):
-        """Initialize the security analyzer."""
+        """Initializes the SecurityAnalyzer."""
         self.logger = logging.getLogger(__name__)
-        
+
     def analyze_diff(self, diff_content: str) -> List[SecurityFinding]:
-        """
-        Analyze a git diff for security vulnerabilities using industry-standard tools.
-        
+        """Analyzes a git diff for security vulnerabilities.
+
         Args:
-            diff_content: Git diff content
-            
+            diff_content: The content of the git diff to analyze.
+
         Returns:
-            List of SecurityFinding objects
+            A list of SecurityFinding objects representing the vulnerabilities found.
         """
         findings = []
         
@@ -455,7 +471,14 @@ class SecurityAnalyzer:
         return mapping.get(severity.upper(), Severity.INFO)
 
     def generate_report(self, findings: List[SecurityFinding]) -> dict:
-        """Generate a structured security findings report."""
+        """Generates a summary report of security findings.
+
+        Args:
+            findings: A list of SecurityFinding objects.
+
+        Returns:
+            A dictionary containing a summary of the findings.
+        """
         summary = {
             "total_findings": len(findings),
             "severities": {},
@@ -471,7 +494,14 @@ class SecurityAnalyzer:
         return report
 
 def scan_diff_file(diff_file_path: str) -> dict:
-    """Scan a diff file for security issues and return a report."""
+    """Scans a diff file for security issues and returns a report.
+
+    Args:
+        diff_file_path: The path to the diff file to scan.
+
+    Returns:
+        A dictionary containing the security report.
+    """
     import os
     if not os.path.exists(diff_file_path):
         return {"error": "Diff file not found"}
