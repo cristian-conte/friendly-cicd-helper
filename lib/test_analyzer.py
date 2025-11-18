@@ -40,7 +40,21 @@ class TestIssueSeverity(Enum):
 
 @dataclass
 class TestFinding:
-    """Represents a test-related finding."""
+    """Represents a single test-related finding.
+
+    Attributes:
+        issue_type: The type of test issue.
+        severity: The severity level of the issue.
+        confidence: The confidence level of the finding (0.0 to 1.0).
+        title: A brief title for the finding.
+        description: A detailed description of the issue.
+        file_path: The path to the file where the issue was found.
+        line_number: The line number of the issue.
+        code_snippet: A snippet of the code related to the issue.
+        recommendation: A recommendation on how to address the issue.
+        coverage_percentage: The test coverage percentage, if applicable.
+        test_file_suggestion: A suggestion for a test file to create or modify.
+    """
     issue_type: TestIssueType
     severity: TestIssueSeverity
     confidence: float
@@ -55,26 +69,30 @@ class TestFinding:
 
 
 class TestIntelligenceAnalyzer:
-    """Test intelligence analyzer using industry-standard tools and AI."""
-    
+    """Analyzes code for test-related issues and opportunities.
+
+    This class uses various tools and heuristics to analyze code for test
+    coverage, quality, and potential improvements.
+    """
+
     def __init__(self, test_length_threshold: int = 20):
-        """Initialize the test intelligence analyzer.
-        
+        """Initializes the TestIntelligenceAnalyzer.
+
         Args:
-            test_length_threshold: Maximum number of lines for a test method before it's flagged as too long
+            test_length_threshold: The maximum number of lines for a test method
+                before it's flagged as too long.
         """
         self.logger = logging.getLogger(__name__)
         self.test_length_threshold = test_length_threshold
         
     def analyze_diff(self, diff_content: str) -> List[TestFinding]:
-        """
-        Analyze a git diff for test-related issues and opportunities.
-        
+        """Analyzes a git diff for test-related issues.
+
         Args:
-            diff_content: Git diff content
-            
+            diff_content: The content of the git diff to analyze.
+
         Returns:
-            List of TestFinding objects
+            A list of TestFinding objects representing the issues found.
         """
         findings = []
         
@@ -477,7 +495,14 @@ class TestIntelligenceAnalyzer:
         return temp_path
     
     def generate_report(self, findings: List[TestFinding]) -> dict:
-        """Generate a structured test intelligence report."""
+        """Generates a summary report of test-related findings.
+
+        Args:
+            findings: A list of TestFinding objects.
+
+        Returns:
+            A dictionary containing a summary of the findings.
+        """
         summary = {
             "total_findings": len(findings),
             "coverage_gaps": len([f for f in findings if f.issue_type == TestIssueType.COVERAGE_GAP]),

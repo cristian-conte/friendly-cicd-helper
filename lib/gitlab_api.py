@@ -16,9 +16,13 @@ import gitlab
 import os
 import sys
 
-def issue_comment(project, issue, comment):
-    """
-    Post a comment to a Gitlab issue
+def issue_comment(project: str, issue: int, comment: str):
+    """Posts a comment to a GitLab issue.
+
+    Args:
+        project: The ID of the GitLab project.
+        issue: The IID of the issue to comment on.
+        comment: The content of the comment.
     """
     gl = gitlab.Gitlab(private_token=os.environ['GITLAB_TOKEN'])
     project = gl.projects.get(project)
@@ -26,9 +30,13 @@ def issue_comment(project, issue, comment):
     note = issue.notes.create({'body': comment})
     print(f'Posted a comment to Gitlab issue. Link: {issue.web_url}#note_{note.id}')
 
-def merge_request_comment(project, mr, comment):
-    """
-    Post a comment to a Gitlab merge request
+def merge_request_comment(project: str, mr: int, comment: str):
+    """Posts a comment to a GitLab merge request.
+
+    Args:
+        project: The ID of the GitLab project.
+        mr: The IID of the merge request to comment on.
+        comment: The content of the comment.
     """
     gl = gitlab.Gitlab(private_token=os.environ['GITLAB_TOKEN'])
     project = gl.projects.get(project)
@@ -36,9 +44,15 @@ def merge_request_comment(project, mr, comment):
     note = merge_request.notes.create({'body': comment})
     print(f'Posted a comment to Gitlab MR. Link: {merge_request.web_url}#note_{note.id}')
 
-def get_latest_merge_request(project, source_branch):
-    """
-    Find the latest merge request id for a given source branch
+def get_latest_merge_request(project: str, source_branch: str) -> int | None:
+    """Finds the latest merge request for a given source branch.
+
+    Args:
+        project: The ID of the GitLab project.
+        source_branch: The name of the source branch.
+
+    Returns:
+        The IID of the merge request if found, otherwise None.
     """
     gl = gitlab.Gitlab(private_token=os.environ['GITLAB_TOKEN'])
     project = gl.projects.get(project)
